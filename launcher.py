@@ -12,7 +12,7 @@ processes = []
 for drone in drones:
     cmd = [
         "python3",
-        "connect.py",
+        "main.py",
         "--sysid", str(drone["sysid"]),
         "--system_address", drone["system_address"]
     ]

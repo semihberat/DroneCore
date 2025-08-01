@@ -1,34 +1,50 @@
-import asyncio
-
-from models.connect import DroneConnection 
-
+from mavsdk.offboard import VelocityNedYaw
+import math
 
 class OffboardControl(DroneConnection):
-    def __init__(self, sysid: int = 1, system_address: str = "udp://:14541"):
-        super().__init__(sysid=sysid, system_address=system_address)
-        self.current_position = None
+    # ...existing code...
 
-    async def update_position(self):
-        async for position in self.drone.telemetry.position():
-            self.current_position = position
-            print(f"Current Position: {self.current_position.latitude_deg}, {self.current_position.longitude_deg}, {self.current_position.absolute_altitude_m}")
-            
-    async def formation_control(self):
-        # Implement formation control logic here
-        pass
+    async def goto_with_velocity(self, target_lat, target_lon, target_alt, velocity_m_s):
+        await self.drone.offboard.start()
+        print("Offboard mode started")
+
+        while True:
+            # Mevcut konum
+            pos = self.current_position
+            if pos is None:
+                await asyncio.sleep(0.1)
+                continue
+
+            # Hedefe olan mesafe ve yönü hesapla (basit örnek, NED frame için)
+            # Burada daha hassas bir dönüşüm gerekebilir!
+            north = (target_lat - pos.latitude_deg) * 111000  # yaklaşık metre
+            east = (target_lon - pos.longitude_deg) * 111000 * math.cos(math.radians(pos.latitude_deg))
+            down = pos.absolute_altitude_m - target_alt
+
+            distance = math.sqrt(north**2 + east**2 + down**2)
+            if distance < 1.0:  # 1 metreye geldiğinde dur
+                break
+
+            # Normalize et ve hız vektörü oluştur
+            norm = math.sqrt(north**2 + east**2 + down**2)
+            north_v = velocity_m_s * north / norm
+            east_v = velocity_m_s * east / norm
+            down_v = velocity_m_s * down / norm
+
+            await self.drone.offboard.set_velocity_ned(
+                VelocityNedYaw(north_v, east_v, down_v, 0.0)
+            )
+            await asyncio.sleep(0.1)  # 10 Hz
+
+        await self.drone.offboard.stop()
+        print("Reached target and stopped offboard mode.")
 
     async def run_mission(self):
         await self.connect()
         self._position_task = asyncio.ensure_future(self.update_position())
-       
-async def run(sysid, system_address):
-    offboard_control = OffboardControl(sysid=sysid, system_address=system_address)
-    await offboard_control.run_mission()
+        await asyncio.sleep(2)  # Konumun güncellenmesini bekle
 
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--sysid", type=int, default=1, help="Drone system id")
-    parser.add_argument("--system_address", type=str, default="udp://:14541", help="Drone system address")
-    args = parser.parse_args()
-    asyncio.run(run(args.sysid, args.system_address))
+        # Örnek: Hedef koordinat ve hız
+        await self.goto_with_velocity(target_lat=40.123456, target_lon=29.123456, target_alt=50.0, velocity_m_s=3.0)
+
+# ...existing code...

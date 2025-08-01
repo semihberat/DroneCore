@@ -1,0 +1,9 @@
+2025-08-01 Offboard Mission Refactor & Fixes
+
+- Refactored offboard mission logic to use PX4 NED frame reference correctly.
+- Home position (lat, lon, alt) is now stored once at takeoff and used as the NED reference.
+- Target NED coordinates are calculated only once relative to home and sent as a fixed position command in the control loop.
+- Removed conflicting or unnecessary velocity commands; velocity vector is now set to (0, 0, 0, 0) for pure position control.
+- Down (altitude) calculation and control are fixed; drone now holds 10 meters above takeoff altitude during the mission.
+- Target reach condition improved for both horizontal and vertical axes.
+- Improved code readability and removed redundant or incorrect
