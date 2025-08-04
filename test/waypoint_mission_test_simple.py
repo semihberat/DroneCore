@@ -48,7 +48,7 @@ async def test_waypoint_mission():
         await mission.initialize_mission()
         
         print(f"📍 {lat}, {lon}, {alt}m hedefine gidiyor...")
-        await mission.go_to_position(lat, lon, alt, hold_time)
+        await mission.go_to_position(lat, lon, alt, hold_time, 15.0)
         
         print("🛬 İniyor...")
         await mission.end_mission()

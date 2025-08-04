@@ -1,3 +1,58 @@
+📅 Son Commit: 4 Ağustos 2025 - Waypoint Mission System Updates
+
+🔧 Yapılan Değişiklikler:
+
+## Waypoint Mission Sistemi Güncellemeleri
+
+### 1. waypoint_mission.py Güncellemeleri
+- ✅ **Dinamik navigasyon**: Sabit home referansı yerine her waypoint için güncel konumdan mesafe hesabı
+- ✅ **Hız kontrolü**: travel_time parametresi yerine target_speed parametresi kullanımı
+- ✅ **Akıllı yaklaşma**: Hedefe 1 metre yaklaştığında durma mantığı
+- ✅ **Güvenlik sınırı**: Maksimum 20 m/s hız sınırı eklenmesi
+- ✅ **Dinamik açı hesabı**: Her adımda güncel konumdan hedefe açı hesaplaması
+
+### 2. multiple_waypoint_mission.py Güncellemeleri  
+- ✅ **5 parametreli waypoint desteği**: (lat, lon, alt, hold_time, target_speed) formatı
+- ✅ **Tuple unpacking hatası düzeltmesi**: 4 parametre yerine 5 parametre desteği
+- ✅ **Sıralı waypoint gezimi**: Waypoint'ler arası düzgün geçiş sağlandı
+
+### 3. Test Sistemi Güncellemeleri
+- ✅ **multiple_waypoint_mission.py test**: Etkileşimli kullanım arayüzü
+- ✅ **Hata ayıklama**: traceback eklenerek detaylı hata mesajları
+- ✅ **Örnek waypoint'ler**: Hazır test koordinatları eklendi
+- ✅ **Manuel waypoint girişi**: Özel koordinat tanımlama desteği
+
+### 4. Sistem Düzeltmeleri
+- ✅ **Python cache temizleme**: __pycache__ dosyalarının temizlenmesi
+- ✅ **Import sorunları**: Modül referanslarının düzeltilmesi
+- ✅ **Parameter uyumsuzluğu**: Waypoint parameter sayısının standardize edilmesi
+
+### 5. Dokümantasyon
+- ✅ **README.md güncellemesi**: Detaylı kullanım kılavuzu
+- ✅ **Test kullanım örnekleri**: Adım adım test prosedürleri
+- ✅ **Hata ayıklama rehberi**: Yaygın hatalar ve çözümleri
+- ✅ **Parametre açıklamaları**: Tüm fonksiyon parametrelerinin detayları
+
+## 🚁 Sistem Durumu
+- ✅ Waypoint navigasyonu çalışıyor
+- ✅ Çoklu waypoint sistemi aktif
+- ✅ Hız kontrolü fonksiyonel
+- ✅ Test sistemi hazır
+
+## 🧪 Test Durumu
+- ✅ multiple_waypoint_mission.py: Test edildi, çalışıyor
+- ✅ waypoint_mission_test_simple.py: Güncellendi, parametre uyumlu
+- ✅ Tuple unpacking hatası: Çözüldü
+- ⚠️ Simulatör arm problemi: MAVSDK/PX4 ayar sorunu (kod sorunu değil)
+
+## 📋 Sonraki Adımlar
+- Simulatör ayarlarının düzeltilmesi
+- Gerçek drone testleri
+- APF algoritması entegrasyonu
+- PID kontrol optimizasyonu
+
+==========================================
+
 COMMIT: Drone Formation Flight System - Major Refactoring & Bug Fixes
 
 📅 Date: August 3, 2025

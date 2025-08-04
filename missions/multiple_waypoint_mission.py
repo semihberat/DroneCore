@@ -15,9 +15,9 @@ class MultipleWaypointMission(WaypointMission):
             return
         
         for i, waypoint in enumerate(waypoints, 1):
-            target_lat, target_lon, target_alt, hold_time = waypoint
+            target_lat, target_lon, target_alt, hold_time, travel_time = waypoint
             print(f"🎯 Waypoint {i}/{len(waypoints)}: {target_lat}, {target_lon}, {target_alt}m")
-            await self.go_to_position(target_lat, target_lon, target_alt, hold_time)
+            await self.go_to_position(target_lat, target_lon, target_alt, hold_time, travel_time)
             await asyncio.sleep(0.2)
 
     async def run_waypoint_mission(self, waypoints, sysid=1, system_address="udp://:14540"):

@@ -31,20 +31,43 @@ class WaypointMission(OffboardControl):
         }
         print(f"🏠 Home pozisyon kaydedildi: {self.home_position['lat']}, {self.home_position['lon']}")
 
-    async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=5.0):
+    async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=5.0, target_speed=5.0):
         await asyncio.sleep(0.5)
         
         # ✅ Sabit home referansı kullan
         if self.home_position is None:
             raise Exception("Home pozisyon henüz ayarlanmamış! initialize_mission() çağırın.")
         
-        # Hedefin NED koordinatını SABİT home'dan hesapla
-        target_north, target_east = self.get_lat_lon_distance(
-            self.home_position["lat"], self.home_position["lon"],  # ✅ Sabit referans
-            target_lat, target_lon
-        )
-
+        print(f"🎯 Hedefe gidiyor: {target_lat}, {target_lon}, {target_alt}m")
+        
+        # ✅ Her waypoint için güncel konumdan hedefe mesafe ve hız hesapla
         while True:
+            # Güncel konumdan hedefe mesafe
+            target_north, target_east = self.get_lat_lon_distance(
+                self.current_position.latitude_deg,  # ✅ Güncel konum
+                self.current_position.longitude_deg, # ✅ Güncel konum
+                target_lat, target_lon
+            )
+            
+            # Hedefe olan mesafe
+            distance = math.sqrt(target_north**2 + target_east**2)
+            
+            # Hedefe çok yakınsa bitir
+            if distance < 1.0:
+                break
+                
+            # ✅ travel_time parametresine göre hız hesapla
+            max_speed = min(target_speed, 20.0)  # Maksimum 20 m/s güvenlik sınırı
+
+            if distance > 1.0:
+                target_north_vel = (target_north / distance) * max_speed
+                target_east_vel = (target_east / distance) * max_speed
+            else:
+                target_north_vel = target_north * 0.5  # Yakınken yavaşla
+                target_east_vel = target_east * 0.5
+                
+            target_down_vel = -(self.home_position["alt"] + target_alt - self.current_position.absolute_altitude_m) * 0.5
+            
             # ✅ DÜZELTME: Güncel konumdan hedefe açı hesapla
             angle_rad = CalculateDistance.get_turn_angle(
                 self.current_position.latitude_deg,    # ✅ Güncel konum
@@ -53,23 +76,12 @@ class WaypointMission(OffboardControl):
             )
             angle_deg = math.degrees(angle_rad)
             
-            await self.drone.offboard.set_position_velocity_ned(
-                PositionNedYaw(target_north, target_east, -target_alt, angle_deg),
-                VelocityNedYaw(0.0, 0.0, 0.0, angle_deg)
+            await self.drone.offboard.set_velocity_ned(
+                VelocityNedYaw(target_north_vel, target_east_vel, target_down_vel, angle_deg)
             )
-        
-            # Güncel konumdan hedefe mesafe
-            north_err, east_err = self.get_lat_lon_distance(
-                self.current_position.latitude_deg,
-                self.current_position.longitude_deg,
-                target_lat,
-                target_lon
-            )
-            
-            down_err = -(self.home_position["alt"] + target_alt - self.current_position.absolute_altitude_m)
+
             await asyncio.sleep(0.1)
-            
-            if abs(north_err) < 1.0 and abs(east_err) < 1.0 and abs(down_err) < 0.5:
-                print(f"✅ Hedefe ulaşıldı: {target_lat}, {target_lon}, {target_alt}m")
-                await asyncio.sleep(hold_time)
-                return
+        
+        # Hedefe ulaştığında bekle
+        print(f"✅ Hedefe ulaşıldı: {target_lat}, {target_lon}, {target_alt}m")
+        await asyncio.sleep(hold_time)

@@ -19,12 +19,25 @@ class OffboardControl(DroneConnection):
         print("-- Setting initial setpoint")
         # Kalkışta 10 metre yukarıya çık
         await self.drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, -10.0, 0.0))
+
         print("-- Starting offboard mode")
         try:
             await self.drone.offboard.start()
         except OffboardError as e:
             print(f"Offboard start failed: {e}")
             return
+
+        # Basit kalkış kontrolü
+        print("-- Kalkış kontrol ediliyor...")
+        start_alt = self.current_position.absolute_altitude_m
+        await asyncio.sleep(5)  # 5 saniye bekle
+        current_alt = self.current_position.absolute_altitude_m
+        
+        if current_alt - start_alt > 8:  # En az 8 metre yükseldi mi?
+            print(f"✅ Kalkış başarılı: {current_alt - start_alt:.1f}m yükseldi")
+        else:
+            print(f"⚠️ Kalkış eksik: Sadece {current_alt - start_alt:.1f}m yükseldi")
+# ...existing code...
     
     async def end_mission(self):
         print("-- Ending mission...")
