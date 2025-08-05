@@ -43,19 +43,12 @@ class WaypointMission(OffboardControl):
         # ✅ Her waypoint için güncel konumdan hedefe mesafe ve hız hesapla
         while True:
             # Güncel konumdan hedefe mesafe
-            target_north, target_east = self.get_lat_lon_distance(
+            target_north, target_east, distance = self.get_lat_lon_distance(
                 self.current_position.latitude_deg,  # ✅ Güncel konum
                 self.current_position.longitude_deg, # ✅ Güncel konum
                 target_lat, target_lon
             )
-            
-            # Hedefe olan mesafe
-            distance = math.sqrt(target_north**2 + target_east**2)
-            
-            # Hedefe çok yakınsa bitir
-            if distance < 1.0:
-                break
-                
+
             # ✅ travel_time parametresine göre hız hesapla
             max_speed = min(target_speed, 20.0)  # Maksimum 20 m/s güvenlik sınırı
 
@@ -80,8 +73,17 @@ class WaypointMission(OffboardControl):
                 VelocityNedYaw(target_north_vel, target_east_vel, target_down_vel, angle_deg)
             )
 
+            if distance < 1.0:
+                break
+     
+        print(f"⏸️ Hold modunda {hold_time} saniye bekleniyor...")
+        hold_start_time = asyncio.get_event_loop().time()
+        
+        while (asyncio.get_event_loop().time() - hold_start_time) < hold_time:
+            # Sıfır velocity ile pozisyonda kal
+            await self.drone.offboard.set_velocity_ned(
+                VelocityNedYaw(0.0, 0.0, 0.0, angle_deg)  # Son açıyı koru
+            )
             await asyncio.sleep(0.1)
         
-        # Hedefe ulaştığında bekle
-        print(f"✅ Hedefe ulaşıldı: {target_lat}, {target_lon}, {target_alt}m")
-        await asyncio.sleep(hold_time)
+        print(f"✅ Hold tamamlandı!")
