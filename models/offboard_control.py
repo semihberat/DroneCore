@@ -37,6 +37,7 @@ class OffboardControl(DroneConnection):
             print(f"✅ Kalkış başarılı: {current_alt - start_alt:.1f}m yükseldi")
         else:
             print(f"⚠️ Kalkış eksik: Sadece {current_alt - start_alt:.1f}m yükseldi")
+            
 # ...existing code...
     
     async def end_mission(self):

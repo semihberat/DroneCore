@@ -26,9 +26,9 @@ def get_user_inputs():
     
     if use_examples in ['y', 'yes', 'evet', 'e']:
         waypoints = [
-            (47.399061, 8.542257, 10, 5, 15),
-            (47.400129, 8.547922, 10, 5, 10),
-            (47.395815, 8.545304, 10, 5, 15)
+            (47.399061, 8.542257, 10, 15, 18),
+            (47.400129, 8.547922, 10, 15, 18),
+            (47.395815, 8.545304, 10, 15, 18)
         ]
         print("✅ Örnek waypoint'ler yüklendi!")
         for i, wp in enumerate(waypoints, 1):

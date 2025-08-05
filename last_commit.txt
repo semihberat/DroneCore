@@ -1,4 +1,4 @@
-📅 Son Commit: 6 Ağustos 2025 - Hold Mode Implementation & Precision Navigation
+📅 Son Commit: 6 Ağustos 2025 - Optimal Stop Distance
 
 🔧 Yapılan Değişiklikler:
 
@@ -29,6 +29,8 @@ while (asyncio.get_event_loop().time() - hold_start_time) < hold_time:
     )
     await asyncio.sleep(0.1)
 ```
+### Ekstra: Hedefe varma kriterindeki sapma optimize edildi
+- ✅ **waypoint_mission.py**: optimal_stop_distance satırı
 
 ### 4. Test System Validation
 - ✅ **multiple_waypoint_test.py**: Hold mode ile test edildi

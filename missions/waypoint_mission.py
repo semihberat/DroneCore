@@ -49,15 +49,17 @@ class WaypointMission(OffboardControl):
                 target_lat, target_lon
             )
 
-            # ✅ travel_time parametresine göre hız hesapla
+            # ✅ travel_time parametresine göre hız hesapl
+            # a
             max_speed = min(target_speed, 20.0)  # Maksimum 20 m/s güvenlik sınırı
-
-            if distance > 1.0:
+            optimal_stop_distance = max_speed * 1.0
+            
+            if distance > optimal_stop_distance:  # Eğer mesafe 5 saniyelik hızdan büyükse
                 target_north_vel = (target_north / distance) * max_speed
                 target_east_vel = (target_east / distance) * max_speed
             else:
-                target_north_vel = target_north * 0.5  # Yakınken yavaşla
-                target_east_vel = target_east * 0.5
+                target_north_vel = target_north * 0.1  # Yakınken yavaşla
+                target_east_vel = target_east * 0.1
                 
             target_down_vel = -(self.home_position["alt"] + target_alt - self.current_position.absolute_altitude_m) * 0.5
             
@@ -72,8 +74,7 @@ class WaypointMission(OffboardControl):
             await self.drone.offboard.set_velocity_ned(
                 VelocityNedYaw(target_north_vel, target_east_vel, target_down_vel, angle_deg)
             )
-
-            if distance < 1.0:
+            if distance < optimal_stop_distance:
                 break
      
         print(f"⏸️ Hold modunda {hold_time} saniye bekleniyor...")
