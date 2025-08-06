@@ -8,7 +8,19 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.connect import DroneConnection
 
-class OffboardControl(DroneConnection):
+class DroneFunctionality:
+
+    async def hold_mode(self, hold_time: float, angle_deg_while_hold: float):
+        print(f"Hold modunda {hold_time} saniye bekleniyor...")
+        hold_start_time = asyncio.get_event_loop().time()
+
+        while (asyncio.get_event_loop().time() - hold_start_time) < hold_time:
+            await self.drone.offboard.set_velocity_ned(
+                VelocityNedYaw(0.0, 0.0, 0.0, angle_deg_while_hold)  # Son açıyı koru
+            )
+            await asyncio.sleep(0.1)  # Control loop delay
+
+class OffboardControl(DroneConnection, DroneFunctionality):
     def __init__(self):
         super().__init__()
 
@@ -37,8 +49,6 @@ class OffboardControl(DroneConnection):
             print(f"✅ Kalkış başarılı: {current_alt - start_alt:.1f}m yükseldi")
         else:
             print(f"⚠️ Kalkış eksik: Sadece {current_alt - start_alt:.1f}m yükseldi")
-            
-# ...existing code...
     
     async def end_mission(self):
         print("-- Ending mission...")

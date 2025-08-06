@@ -14,6 +14,9 @@ def get_user_inputs():
     system_address = input("System address girin (varsayılan: udp://:14540): ").strip()
     system_address = system_address if system_address else "udp://:14540"
     
+    port = input("Port girin (varsayılan: 50060): ").strip()
+    port = int(port) if port else 50060
+    
     print("\n📍 Waypoint Seçenekleri:")
     print("💡 Örnek waypoint'ler:")
     print("   1. 47.399061,8.542257,10,5,10")
@@ -26,8 +29,8 @@ def get_user_inputs():
     
     if use_examples in ['y', 'yes', 'evet', 'e']:
         waypoints = [
-            (47.399061, 8.542257, 10, 15, 18),
-            (47.400129, 8.547922, 10, 15, 18),
+            (47.397840, 8.548052, 10, 15, 18),
+            (47.39783996938607, 8.550701371461741, 10, 15, 18),
             (47.395815, 8.545304, 10, 15, 18)
         ]
         print("✅ Örnek waypoint'ler yüklendi!")
@@ -58,25 +61,26 @@ def get_user_inputs():
     
     if not waypoints:
         print("❌ Hiç waypoint girilmedi!")
-        return None, None, None
+        return None, None, None, None
     
     print(f"\n📋 Toplam {len(waypoints)} waypoint eklendi")
     print("🚀 Misyon başlatılıyor...")
     
-    return sysid, system_address, waypoints
+    return sysid, system_address, port, waypoints
 
 async def main():
     user_inputs = get_user_inputs()
     if user_inputs[0] is None:
         return
     
-    sysid, system_address, waypoints = user_inputs
+    sysid, system_address, port, waypoints = user_inputs
     
     print("\n" + "=" * 50)
     print("📋 MISYON ÖZETİ:")
     print(f"🔗 System ID: {sysid}")
     print(f"🔗 Address: {system_address}")
-    print(f"📍 Waypoint sayısı: {len(waypoints)}")
+    print(f"� Port: {port}")
+    print(f"�📍 Waypoint sayısı: {len(waypoints)}")
     for i, wp in enumerate(waypoints, 1):
         print(f"   {i}. {wp[0]}, {wp[1]}, {wp[2]}m, {wp[3]}s, {wp[4]}s")
     
@@ -87,7 +91,7 @@ async def main():
     
     try:
         mission = MultipleWaypointMission()
-        await mission.run_waypoint_mission(waypoints, sysid=sysid, system_address=system_address)
+        await mission.run_waypoint_mission(waypoints, system_address=system_address, port=port)
         print("🎉 Misyon başarıyla tamamlandı!")
     except Exception as e:
         import traceback

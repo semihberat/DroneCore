@@ -1,8 +1,75 @@
-📅 Son Commit: 6 Ağustos 2025 - Optimal Stop Distance
+📅 Son Commit: 6 Ağustos 2025 - Navigation Pattern Missions
 
 🔧 Yapılan Değişiklikler:
 
-## 🚁 HOLD MODE SİSTEMİ EKLENDİ
+## 🌊 DALGA MEKANİĞİ PATTERN MİSYONLARI EKLENDİ
+
+### 1. Coordinate Calculation Utilities (test.py)
+- ✅ **get_turn_angle()**: İki koordinat arası açı hesaplama fonksiyonu
+- ✅ **calculate_new_position()**: Verilen açı ve mesafede yeni koordinat hesaplama  
+- ✅ **calculate_perpendicular_waypoint()**: Yolculuk yönüne dik waypoint hesaplama
+- ✅ **Geodesic Library**: Geographiclib kullanarak hassas coğrafi hesaplamalar
+
+### 2. Triangle Mission (triangle_mission.py)
+- ✅ **L-Şekli Pattern**: Drone'un mevcut yaw açısını baz alan L şekli çizme
+- ✅ **calculate_l_shape_path()**: Başlangıç noktasından düz, sonra 90° dik gidiş
+- ✅ **Yaw-Based Navigation**: Drone'un gerçek yönelimini referans alan navigasyon
+
+### 3. Zigzag Mission (zigzag_mission.py)  
+- ✅ **Art Arda L Pattern**: Birden fazla L şeklini art arda çizme
+- ✅ **Direction Alternating**: Sağ-sol alternatif yön değiştirme sistemi
+- ✅ **Configurable Parameters**: L sayısı, mesafe ve yön kontrolü
+
+### 4. Labyrinth Mission (labyrinth_mission.py)
+- ✅ **Labirent Tarzı Hareket**: Ana koridor boyunca sağ-sol sapma pattern'i
+- ✅ **Main Corridor Logic**: Merkez çizgi boyunca ilerlerken yan dallanma
+- ✅ **Return to Center**: Her yan sapma sonrası ana koridora geri dönüş
+- ✅ **Alternating Branch**: Sağ-Sol-Sağ-Sol sıralı sapma sistemi
+
+### 5. Square Wave Mission (square_wave_mission.py)
+- ✅ **Kare Dalga Mekaniği**: Merkez çizgi referanslı kare dalga pattern'i
+- ✅ **Mathematical Wave Function**: y = A × square(2π × x / λ) formülü
+- ✅ **Center Line Reference**: Drone'un yaw'ını merkez çizgi olarak kullanma
+- ✅ **Wave Parameters**: Dalga boyu, genlik, adım büyüklüğü kontrolü
+- ✅ **Digital Signal Pattern**: ı_ı-ı_ı-ı_ı şeklinde dijital sinyal benzeri hareket
+
+### 6. Sine Wave Mission (sine_wave_mission.py)  
+- ✅ **Sinüs Dalgası**: Matematiksel sinüs fonksiyonu ile sürekli dalga
+- ✅ **Smooth Oscillation**: Merkez çizgiden yumuşak salınım hareketi
+- ✅ **Continuous Wave**: Kesintisiz sinüsoidal pattern çizme
+
+### 7. Telemetry Enhancement (drone_status.py)
+- ✅ **Attitude Tracking**: Drone'un yaw/pitch/roll açılarını alma
+- ✅ **update_attitude()**: Gerçek zamanlı açı telemetrisi
+- ✅ **Real-time Yaw**: Mevcut yaw açısını pattern'lerde kullanma
+
+### 8. Test System Modularization
+- ✅ **square_wave_test.py**: Kare dalga misyonu için ayrı test dosyası
+- ✅ **Clean Mission Classes**: Print'ler temizlendi, modüler yapı
+- ✅ **multiple_waypoint_test.py Style**: Tutarlı test dosya formatı
+
+## 🔧 Teknik Detaylar
+
+### Pattern Mission Architecture:
+```python
+# Kare Dalga Örneği:
+mission = SquareWaveMission()
+waypoints = mission.calculate_square_wave_path(
+    lat, lon, yaw, wave_length=80, amplitude=20, 
+    total_distance=240, step_size=5
+)
+await mission.run_square_wave_mission(waypoints)
+```
+
+### Wave Mechanics Implementation:
+- **Referans Çizgi**: Drone'un yaw açısı ana yön
+- **Salınım**: ±genlik kadar sağ-sol sapma
+- **Matematiksel Doğruluk**: Gerçek dalga fonksiyonları
+- **Configurable Resolution**: Adım büyüklüğü ile çözünürlük
+
+## 📊 Önceki Güncellemeler (4 Ağustos 2025)
+
+### 🚁 HOLD MODE SİSTEMİ EKLENDİ
 
 ### 1. waypoint_mission.py - Hold Mode Implementation
 - ✅ **Hold Mode Sistemi**: Hedefe varış sonrası belirlenen süre boyunca pozisyonda kalma

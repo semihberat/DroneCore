@@ -2,7 +2,6 @@
 import asyncio
 import math
 from mavsdk.offboard import (PositionNedYaw, VelocityNedYaw)
-
 #System Libraries
 import argparse
 import sys
@@ -31,7 +30,7 @@ class WaypointMission(OffboardControl):
         }
         print(f"🏠 Home pozisyon kaydedildi: {self.home_position['lat']}, {self.home_position['lon']}")
 
-    async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=5.0, target_speed=5.0):
+    async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=0.0, target_speed=5.0):
         await asyncio.sleep(0.5)
         
         # ✅ Sabit home referansı kullan
@@ -71,6 +70,10 @@ class WaypointMission(OffboardControl):
             )
             angle_deg = math.degrees(angle_rad)
             
+            # ✅ Güncel drone yaw açısını da göster
+            current_yaw = self.current_attitude.yaw_deg if self.current_attitude else "N/A"
+            print(f"🧭 Hedef açı: {angle_deg:.1f}°, Güncel yaw: {current_yaw}°")
+            
             await self.drone.offboard.set_velocity_ned(
                 VelocityNedYaw(target_north_vel, target_east_vel, target_down_vel, angle_deg)
             )
@@ -88,3 +91,5 @@ class WaypointMission(OffboardControl):
             await asyncio.sleep(0.1)
         
         print(f"✅ Hold tamamlandı!")
+
+        await self.hold_mode(hold_time, angle_deg)

@@ -1,28 +1,169 @@
 # Drone Core - Autonomous Drone Control System
 
-Bu proje, MAVSDK kullanarak otonom drone kontrolü sağlayan bir sistem içerir. Waypoint görevleri, çoklu waypoint misyonları ve drone navigasyonu için gerekli araçları sunar.
+Bu proje, MAVSDK kullanarak otonom drone kontrolü sağlayan bir sistem içerir. Waypoint görevleri, çoklu waypoint misyonları, geometrik pattern uçuş görevleri ve dalga mekaniği tabanlı navigasyon sistemi sunar.
+
+## 🌊 YENİ! Geometrik Pattern Missions
+
+Bu sistem artık aşağıdaki geometrik uçuş pattern'lerini desteklemektedir:
+
+### 🔥 **Triangle Mission (L-Şekli Pattern)**
+- Drone'un mevcut yaw açısını baz alan L şekli çizme
+- Başlangıç noktasından düz gidiş, sonra 90° dik dönüş
+- Gerçek zamanlı telemetri ile yaw-based navigation
+
+### 🔄 **Zigzag Mission (Art Arda L Pattern)**  
+- Birden fazla L şeklini art arda çizme sistemi
+- Sağ-sol alternatif yön değiştirme
+- Configurable L sayısı, mesafe ve yön kontrolü
+
+### 🌀 **Labyrinth Mission (Labirent Navigasyonu)**
+- Ana koridor boyunca sağ-sol sapma pattern'i
+- Merkez çizgi referanslı yan dallanma sistemi
+- Her yan sapma sonrası ana koridora otomatik geri dönüş
+
+### 📊 **Square Wave Mission (Kare Dalga Mekaniği)**
+- Matematiksel kare dalga pattern'i: `y = A × square(2π × x / λ)`
+- Merkez çizgi referanslı dijital sinyal benzeri hareket
+- Dalga boyu, genlik, adım büyüklüğü kontrolü
+- ı_ı-ı_ı-ı_ı şeklinde keskin geçişli pattern
+
+### 🌊 **Sine Wave Mission (Sinüs Dalgası)**
+- Matematiksel sinüs fonksiyonu ile sürekli dalga
+- Merkez çizgiden yumuşak salınım hareketi  
+- Continuous wave pattern çizme
 
 ## 📁 Proje Yapısı
 
 ```
 drone-core/
 ├── missions/
-│   ├── waypoint_mission.py      # Tek waypoint görevi
-│   └── multiple_waypoint_mission.py  # Çoklu waypoint görevi
+│   ├── waypoint_mission.py      # Tek waypoint görevi (Hold Mode destekli)
+│   ├── multiple_waypoint_mission.py  # Çoklu waypoint görevi
+│   ├── triangle_mission.py      # 🆕 L-şekli pattern mission
+│   ├── zigzag_mission.py        # 🆕 Zigzag pattern mission
+│   ├── labyrinth_mission.py     # 🆕 Labirent navigasyon mission
+│   ├── square_wave_mission.py   # 🆕 Kare dalga pattern mission
+│   └── sine_wave_mission.py     # 🆕 Sinüs dalgası mission
 ├── models/
 │   ├── connect.py               # Drone bağlantı modülü
-│   ├── drone_status.py          # Drone durum takibi
-│   ├── offboard_control.py      # Offboard kontrol temel sınıfı
-│   └── xbee_communication.py    # XBee haberleşme
+│   ├── drone_status.py          # Drone durum takibi (YAW/PITCH/ROLL telemetri)
+│   └── offboard_control.py      # Offboard kontrol temel sınıfı
 ├── optimization/
 │   ├── distance_calculation.py  # Mesafe ve açı hesaplamaları
 │   ├── pid.py                   # PID kontrol
 │   └── apf.py                   # Artificial Potential Field
 ├── test/
-│   ├── multiple_waypoint_mission.py  # Çoklu waypoint test
+│   ├── multiple_waypoint_test.py     # Çoklu waypoint test
 │   ├── waypoint_mission_test_simple.py  # Basit waypoint test
-│   └── connection_test.py       # Bağlantı testi
+│   ├── connection_test.py            # Bağlantı testi
+│   └── square_wave_test.py           # 🆕 Kare dalga pattern test
+├── test.py                      # 🆕 Coordinate calculation utilities
 └── README.md
+```
+
+## 🌊 Geometrik Pattern Mission Detayları
+
+### 🔥 Triangle Mission (L-Şekli Pattern)
+```python
+from missions.triangle_mission import TriangleMission
+
+mission = TriangleMission()
+await mission.run_l_shape_mission(
+    distance=20,      # Her bacak uzunluğu (metre)
+    turn_right=True   # Sağa dönüş (False: sola dönüş)
+)
+```
+**Özellikler:**
+- Drone'un mevcut yaw açısını referans alan L şekli
+- Başlangıç yönünde düz gidiş, sonra 90° dik dönüş
+- Real-time telemetry ile yaw-based navigation
+
+### 🔄 Zigzag Mission (Art Arda L Pattern)
+```python
+from missions.zigzag_mission import ZigzagMission
+
+mission = ZigzagMission()
+await mission.run_zigzag_mission(
+    l_count=3,           # Kaç L şekli çizilecek
+    l_distance=15,       # Her L'nin bacak uzunluğu
+    start_direction=True # İlk L'nin yönü (True: sağ, False: sol)
+)
+```
+**Özellikler:**
+- Birden fazla L şeklini art arda çizme
+- Sağ-sol alternatif yön değiştirme sistemi
+- Configurable L sayısı ve mesafe parametreleri
+
+### 🌀 Labyrinth Mission (Labirent Navigasyonu)
+```python
+from missions.labyrinth_mission import LabyrinthMission
+
+mission = LabyrinthMission()
+await mission.run_labyrinth_mission(
+    main_distance=50,    # Ana koridor uzunluğu
+    branch_distance=15,  # Yan dalların uzunluğu
+    branch_count=4       # Toplam yan dal sayısı
+)
+```
+**Özellikler:**
+- Ana koridor boyunca sağ-sol sapma pattern'i
+- Merkez çizgi referanslı yan dallanma
+- Her yan sapma sonrası ana koridora geri dönüş
+
+### 📊 Square Wave Mission (Kare Dalga Mekaniği)
+```python
+from missions.square_wave_mission import SquareWaveMission
+
+mission = SquareWaveMission()
+waypoints = mission.calculate_square_wave_path(
+    lat=current_lat, lon=current_lon, yaw=current_yaw,
+    wave_length=80,      # Dalga boyu (metre)
+    amplitude=20,        # Dalga genliği (metre)
+    total_distance=240,  # Toplam mesafe
+    step_size=5          # Adım büyüklüğü (metre)
+)
+await mission.run_square_wave_mission(waypoints)
+```
+**Özellikler:**
+- Matematiksel kare dalga: `y = A × square(2π × x / λ)`
+- Merkez çizgi referanslı dijital sinyal pattern
+- Configurable dalga boyu, genlik ve çözünürlük
+
+### 🌊 Sine Wave Mission (Sinüs Dalgası)
+```python
+from missions.sine_wave_mission import SineWaveMission
+
+mission = SineWaveMission()
+waypoints = mission.calculate_sine_wave_path(
+    lat=current_lat, lon=current_lon, yaw=current_yaw,
+    wave_length=60,      # Dalga boyu (metre)
+    amplitude=15,        # Dalga genliği (metre)
+    total_distance=180,  # Toplam mesafe
+    step_size=3          # Adım büyüklüğü (metre)
+)
+await mission.run_sine_wave_mission(waypoints)
+```
+**Özellikler:**
+- Matematiksel sinüs fonksiyonu ile sürekli dalga
+- Yumuşak salınım hareketi pattern'i
+- Continuous wave çizme sistemi
+
+## 🔧 Coordinate Calculation Utilities (test.py)
+
+```python
+# Perpendicular waypoint hesaplama
+new_lat, new_lon = calculate_perpendicular_waypoint(
+    current_lat, current_lon, target_lat, target_lon, 
+    distance=20, turn_right=True
+)
+
+# Yeni pozisyon hesaplama
+new_lat, new_lon = calculate_new_position(
+    lat, lon, bearing_deg, distance_m
+)
+
+# İki nokta arası açı hesaplama
+angle = get_turn_angle(lat1, lon1, lat2, lon2)
 ```
 
 ## 🚁 Waypoint Mission Sistemi

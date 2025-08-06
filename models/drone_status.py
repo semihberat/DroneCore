@@ -5,6 +5,7 @@ class DroneStatus:
     def __init__(self):
         self.current_position = None
         self.current_velocity = None
+        self.current_attitude = None  # ✅ Yaw/Pitch/Roll için
         self.status_text_task: asyncio.Task = None
 
     async def print_status_text(self, drone):
@@ -20,3 +21,9 @@ class DroneStatus:
         async for odom in drone.telemetry.position_velocity_ned():
             self.current_velocity = odom.velocity
             print(f"-- Velocity: {odom.velocity.north_m_s} {odom.velocity.east_m_s} {odom.velocity.down_m_s}")
+
+    async def update_attitude(self, drone):
+        """Drone'un güncel yaw/pitch/roll açılarını takip et"""
+        async for attitude in drone.telemetry.attitude_euler():
+            self.current_attitude = attitude
+            print(f"-- Attitude: Yaw={attitude.yaw_deg:.1f}°, Pitch={attitude.pitch_deg:.1f}°, Roll={attitude.roll_deg:.1f}°")

@@ -16,11 +16,11 @@ class DroneConnection(DroneStatus):
         #status_text_task defined in constructor because we are gonna use it in multiple methods
 
     # Connection Method
-    async def connect(self, sysid: int = 1, system_address: str = "udp://:14541", 
+    async def connect(self, system_address: str = "udp://:14541", 
                       port: int=50060):
         
-        print(f"-- Connecting to drone with System ID: {sysid}")
-        self.drone = System(sysid=sysid, port=port)
+            
+        self.drone = System( port=port)
         await self.drone.connect(system_address=system_address)
         # Connection State
         print("Waiting for drone to connect...")
@@ -41,5 +41,6 @@ class DroneConnection(DroneStatus):
         self.status_text_task = asyncio.ensure_future(self.print_status_text(self.drone))
         self._position_task = asyncio.ensure_future(self.update_position(self.drone))
         self._velocity_task = asyncio.ensure_future(self.print_velocity(self.drone))
+        self._attitude_task = asyncio.ensure_future(self.update_attitude(self.drone))  # ✅ Yaw tracking
         
 
