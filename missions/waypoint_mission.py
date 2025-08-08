@@ -1,88 +1,119 @@
-#Drone Core Libraries
+# Drone Core Libraries - Temel drone kütüphaneleri
 import asyncio
 import math
 from mavsdk.offboard import (PositionNedYaw, VelocityNedYaw)
-#System Libraries
+# System Libraries - Sistem kütüphaneleri
 import argparse
 import sys
 import os
-#Custom Libraries
+# Custom Libraries - Özel kütüphanelerimiz
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.offboard_control import OffboardControl
 from optimization.distance_calculation import CalculateDistance
 
 class WaypointMission(OffboardControl):
+    """
+    🗺️ GPS Waypoint Navigation Sistemi
+    - GPS koordinatlarına hassas navigasyon (0.5m hassasiyet)
+    - 3 katmanlı hız kontrolü (otomatik yavaşlama)
+    - Real-time mesafe hesaplaması ve feedback
+    - Hold mode desteği (varışta bekleme)
+    """
     def __init__(self):
         super().__init__()
+        # 📐 GPS hesaplama fonksiyonlarını kısayol olarak tanımla
         self.get_lat_lon_distance = CalculateDistance.get_lat_lon_distance
         self.get_turn_angle = CalculateDistance.get_turn_angle
-        self.home_position = None  # ✅ Sabit home referansı
+        self.home_position = None  # 📍 Sabit home referans noktası
 
     async def initialize_mission(self):
-        """Mission başlatıldığında home pozisyonunu kaydet"""
+        """
+        🏠 Mission Başlatma ve Home Position Kaydetme
+        - Parent class'ın initialize_mission'ını çağırır
+        - Home position bir kez kaydedilir ve değişmez
+        """
         await super().initialize_mission()
-        # Home pozisyonunu bir kez kaydet ve değiştirme
+        # Home pozisyonu parent class'ta ayarlanır, burada sadece kullanırız
     
     async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=0.0, target_speed=5.0):
-        await asyncio.sleep(0.5)
+        """
+        🎯 GPS Koordinatına Hassas Navigasyon
+        - 0.5 metre hassasiyetle hedefe gider
+        - 3 katmanlı hız kontrolü (5m+/2-5m/0.5-2m mesafelerine göre)
+        - Real-time mesafe feedback
+        - Varışta optional hold mode
         
-        # ✅ Sabit home referansı kullan
+        Args:
+            target_lat: Hedef latitude (GPS koordinatı)
+            target_lon: Hedef longitude (GPS koordinatı)  
+            target_alt: Hedef yükseklik (metre) - varsayılan 10m
+            hold_time: Varışta bekleme süresi (saniye) - varsayılan 0
+            target_speed: Maksimum hız (m/s) - varsayılan 5m/s
+        """
+        await asyncio.sleep(0.5)  # Stabilizasyon gecikmesi
+        
+        # ⚠️ Home position kontrolü (kritik!)
         if self.home_position is None:
             raise Exception("Home pozisyon henüz ayarlanmamış! initialize_mission() çağırın.")
         
         print(f"🎯 Hedefe gidiyor: {target_lat}, {target_lon}, {target_alt}m")
         
-        # ✅ Her waypoint için güncel konumdan hedefe mesafe ve hız hesapla
+        # 🔁 GPS tabanlı navigasyon döngüsü
         while True:
-            # Güncel konumdan hedefe mesafe
+            # 📏 Güncel konumdan hedefe olan mesafeyi hesapla
             target_north, target_east, distance = self.get_lat_lon_distance(
-                self.current_position.latitude_deg,  # ✅ Güncel konum
-                self.current_position.longitude_deg, # ✅ Güncel konum
+                self.current_position.latitude_deg,     # Güncel latitude
+                self.current_position.longitude_deg,    # Güncel longitude
                 target_lat, target_lon
             )
 
-            # ✅ travel_time parametresine göre hız hesapl
-            # a
+            print(f"📏 Kalan mesafe: {distance:.1f}m")
+            
+            # ✅ Hassas durma kriteri: 0.5 metre
+            if distance <= 0.5:
+                print("🛑 Hedefe ulaşıldı!")
+                # Son pozisyonda tam dur
+                await self.drone.offboard.set_velocity_ned(
+                    VelocityNedYaw(0.0, 0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+                )
+                break
+            
+            # 🚀 Akıllı hız kontrolü (güvenlik sınırı ile)
             max_speed = min(target_speed, 20.0)  # Maksimum 20 m/s güvenlik sınırı
-            optimal_stop_distance = max_speed * 1.0
             
-            if distance > optimal_stop_distance:  # Eğer mesafe 5 saniyelik hızdan büyükse
-                target_north_vel = (target_north / distance) * max_speed
-                target_east_vel = (target_east / distance) * max_speed
-            else:
-                target_north_vel = target_north * 0.1  # Yakınken yavaşla
-                target_east_vel = target_east * 0.1
+            if distance <= 2.0:  # 2 metre kalınca çok yavaş (%20)
+                speed_factor = 0.2
+                print("🐌 Çok yavaş yaklaşım...")
+            elif distance <= 5.0:  # 5 metre kalınca yavaş (%50)
+                speed_factor = 0.5
+                print("🚶 Yavaş yaklaşım...")
+            else:  # Normal hız (%100)
+                speed_factor = 1.0
                 
-            target_down_vel = -(self.home_position["alt"] + target_alt - self.current_position.absolute_altitude_m) * 0.5
+            # 📐 Hedefe doğru hız vektörlerini hesapla (normalize edilmiş)
+            target_north_vel = (target_north / distance) * max_speed * speed_factor
+            target_east_vel = (target_east / distance) * max_speed * speed_factor
+                
+            # ✈️ Yükseklik kontrolü (yumuşak geçiş)
+            target_down_vel = -(self.home_position["alt"] + target_alt - self.current_position.absolute_altitude_m) * 0.3
             
-            # ✅ DÜZELTME: Güncel konumdan hedefe açı hesapla
+            # 🧭 Hedefe doğru yaw açısını hesapla
             angle_rad = CalculateDistance.get_turn_angle(
-                self.current_position.latitude_deg,    # ✅ Güncel konum
-                self.current_position.longitude_deg,   # ✅ Güncel konum  
-                target_lat, target_lon                 # Hedef
+                self.current_position.latitude_deg,     # Mevcut pozisyon
+                self.current_position.longitude_deg,  
+                target_lat, target_lon                  # Hedef pozisyon
             )
-            angle_deg = math.degrees(angle_rad)
+            angle_deg = math.degrees(angle_rad)  # Radyandan dereceye çevir
             
-            # ✅ Güncel drone yaw açısını da göster
-            current_yaw = self.current_attitude.yaw_deg if self.current_attitude else "N/A"
-            print(f"🧭 Hedef açı: {angle_deg:.1f}°, Güncel yaw: {current_yaw}°")
-            
+            # 🎮 Hesaplanan hız vektörlerini drone'a gönder
             await self.drone.offboard.set_velocity_ned(
                 VelocityNedYaw(target_north_vel, target_east_vel, target_down_vel, angle_deg)
             )
-            if distance < optimal_stop_distance:
-                break
+            
+            await asyncio.sleep(0.1)  # Kontrol döngüsü gecikmesi
      
-        print(f"⏸️ Hold modunda {hold_time} saniye bekleniyor...")
-        hold_start_time = asyncio.get_event_loop().time()
-        
-        while (asyncio.get_event_loop().time() - hold_start_time) < hold_time:
-            # Sıfır velocity ile pozisyonda kal
-            await self.drone.offboard.set_velocity_ned(
-                VelocityNedYaw(0.0, 0.0, 0.0, angle_deg)  # Son açıyı koru
-            )
-            await asyncio.sleep(0.1)
-        
-        print(f"✅ Hold tamamlandı!")
-
-        await self.hold_mode(hold_time, angle_deg)
+        # ⏸️ Hold Mode (varışta bekleme)
+        if hold_time > 0:
+            print(f"⏸️ Hold modunda {hold_time} saniye bekleniyor...")
+            await self.hold_mode(hold_time, angle_deg)
+            print(f"✅ Hold tamamlandı!")

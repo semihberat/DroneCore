@@ -1,13 +1,33 @@
-📅 Son Commit: 6 Ağustos 2025 - Navigation Pattern Missions
+📅 Tarih: 8 Ağustos 2025
 
-🔧 Yapılan Değişiklikler:
+🚀 Bugünkü Ana Başarılar:
+- ✅ İnitial yaw test kodu tamamlandı (test/initial_yaw_deg_test.py)
+- ✅ SwarmDiscovery kare dalga oscillation misyonu geliştirildi (10 döngü pattern)
+- ✅ Offboard mode başlatma sorunları çözüldü (position setpoint optimizasyonu)
+- ✅ Navigasyon hassasiyeti büyük ölçüde artırıldı:
+  - go_forward_by_meter: 1m hassasiyet (mesafe tabanlı durma)
+  - go_to_position: 0.5m hassasiyet (3 katmanlı hız kontrolü)
+- ✅ README.md kapsamlı rehber haline getirildi (Türkçe, takım çalışması odaklı)
 
-## 🌊 DALGA MEKANİĞİ PATTERN MİSYONLARI EKLENDİ
+🔧 Teknik İyileştirmeler:
+- Zaman tabanlı navigasyondan mesafe tabanlı navigasyona geçiş
+- Real-time GPS mesafe hesaplamaları ile hassas durak noktaları
+- Home position tracking sistemi optimize edildi
+- PX4 process cleanup komutları eklendi
 
-### 1. Coordinate Calculation Utilities (test.py)
-- ✅ **get_turn_angle()**: İki koordinat arası açı hesaplama fonksiyonu
-- ✅ **calculate_new_position()**: Verilen açı ve mesafede yeni koordinat hesaplama  
-- ✅ **calculate_perpendicular_waypoint()**: Yolculuk yönüne dik waypoint hesaplama
+🧪 Test Durumu:
+- initial_yaw_deg_test.py: Tam çalışır durumda
+- swarm_discovery.py: Square oscillation pattern hazır
+- waypoint_mission.py: Sub-metre hassasiyetle navigasyon
+
+📝 Dokümantasyon:
+- Takım üyeleri için detaylı kurulum rehberi
+- Test kodları çalıştırma kılavuzu
+- Sorun giderme bölümü
+- Kod yapısı açıklamaları
+
+🎯 Sistem Durumu: Tüm ana fonksiyonlar optimize edildi ve test için hazır
+⚡ Performans: Navigasyon hassasiyeti %90+ iyileştirildi (metre seviyesinden 0.5m'ye)
 - ✅ **Geodesic Library**: Geographiclib kullanarak hassas coğrafi hesaplamalar
 
 ### 2. Triangle Mission (triangle_mission.py)
