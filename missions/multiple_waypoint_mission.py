@@ -25,4 +25,5 @@ class MultipleWaypointMission(WaypointMission):
         await self.initialize_mission()
         await self.multiple_waypoint_mission(waypoints)
         await self.end_mission()
-
+    
+    

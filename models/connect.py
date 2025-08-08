@@ -19,7 +19,6 @@ class DroneConnection(DroneStatus):
     async def connect(self, system_address: str = "udp://:14541", 
                       port: int=50060):
         
-            
         self.drone = System( port=port)
         await self.drone.connect(system_address=system_address)
         # Connection State

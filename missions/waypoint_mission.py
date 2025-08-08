@@ -22,14 +22,7 @@ class WaypointMission(OffboardControl):
         """Mission başlatıldığında home pozisyonunu kaydet"""
         await super().initialize_mission()
         # Home pozisyonunu bir kez kaydet ve değiştirme
-        await asyncio.sleep(1)  # Pozisyon stabilleşsin
-        self.home_position = {
-            "lat": self.current_position.latitude_deg,
-            "lon": self.current_position.longitude_deg,
-            "alt": self.current_position.absolute_altitude_m
-        }
-        print(f"🏠 Home pozisyon kaydedildi: {self.home_position['lat']}, {self.home_position['lon']}")
-
+    
     async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=0.0, target_speed=5.0):
         await asyncio.sleep(0.5)
         
