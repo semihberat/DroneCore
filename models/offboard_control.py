@@ -120,8 +120,9 @@ class OffboardControl(DroneConnection, DroneFunctionality):
     """
     def __init__(self):
         super().__init__()
+        self.target_altitude = None
 
-    async def initialize_mission(self):
+    async def initialize_mission(self, target_altitude=10.0):
         """
         🚀 Mission Başlatma Süreci (Kritik Sıralama!)
         1️⃣ Arm (motorları çalıştır)
@@ -130,6 +131,7 @@ class OffboardControl(DroneConnection, DroneFunctionality):
         4️⃣ Offboard mode başlat
         5️⃣ Kalkış doğrulaması yap
         """
+        self.target_altitude = target_altitude + (target_altitude/5)
         print("-- Arming...")
         await self.drone.action.arm()
         await asyncio.sleep(1)
@@ -145,7 +147,7 @@ class OffboardControl(DroneConnection, DroneFunctionality):
 
         # ⚠️ Offboard mode başlamadan önce position setpoint ZORUNLU
         await self.drone.offboard.set_position_ned(
-            PositionNedYaw(0.0, 0.0, -10.0, self.home_position["yaw"])  # 10m yukarı çık
+            PositionNedYaw(0.0, 0.0, -self.target_altitude, self.home_position["yaw"])  # 10m yukarı çık
         )
 
         print("-- Starting offboard mode")
