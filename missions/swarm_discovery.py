@@ -67,8 +67,6 @@ class SwarmDiscovery(OffboardControl):
         
         print("✅ Square Oscillation tamamlandı!")
 
-    
-
     async def square_oscillation_by_cam_fov(self, 
                                                 distance1=30.0, 
                                                 distance2=30.0, 

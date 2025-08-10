@@ -124,50 +124,83 @@ class OffboardControl(DroneConnection, DroneFunctionality):
 
     async def initialize_mission(self, target_altitude=10.0):
         """
-        🚀 Mission Başlatma Süreci (Kritik Sıralama!)
-        1️⃣ Arm (motorları çalıştır)
-        2️⃣ Home position kaydet 
-        3️⃣ Position setpoint ayarla (offboard için gerekli)
-        4️⃣ Offboard mode başlat
-        5️⃣ Kalkış doğrulaması yap
+        🚀 Ultra Stabil Takeoff → Offboard Algoritması  
+        Problem: PX4 takeoff sonrası offboard geçiş zorluğu
+        Çözüm: Hold mode + çoklu deneme sistemi
         """
-        self.target_altitude = target_altitude + (target_altitude/5)
-        print("-- Arming...")
+        self.target_altitude = target_altitude
+        print("-- 1️⃣ Arming...")
         await self.drone.action.arm()
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
         
-        print("-- Setting initial setpoint")
-        # 📍 Home pozisyonunu kaydet (tüm navigasyonun referans noktası)
+        print("-- 2️⃣ Home position kaydediliyor...")
         self.home_position = {
-            "lat": self.current_position.latitude_deg,     # Başlangıç latitude
-            "lon": self.current_position.longitude_deg,    # Başlangıç longitude  
-            "alt": self.current_position.absolute_altitude_m,  # Başlangıç altitude
-            "yaw": self.current_attitude.yaw_deg if self.current_attitude else 0.0  # Başlangıç yaw açısı
+            "lat": self.current_position.latitude_deg,
+            "lon": self.current_position.longitude_deg,
+            "alt": self.current_position.absolute_altitude_m,
+            "yaw": self.current_attitude.yaw_deg if self.current_attitude else 0.0
         }
+        print(f"   Home: Alt={self.home_position['alt']:.1f}m, Yaw={self.home_position['yaw']:.1f}°")
 
-        # ⚠️ Offboard mode başlamadan önce position setpoint ZORUNLU
-        await self.drone.offboard.set_position_ned(
-            PositionNedYaw(0.0, 0.0, -self.target_altitude, self.home_position["yaw"])  # 10m yukarı çık
-        )
-
-        print("-- Starting offboard mode")
-        try:
-            await self.drone.offboard.start()
-        except OffboardError as e:
-            print(f"Offboard start failed: {e}")
-            return
-
-        # 📊 Kalkış başarı kontrolü
-        print("-- Kalkış kontrol ediliyor...")
-        start_alt = self.current_position.absolute_altitude_m
-        await asyncio.sleep(5)  # 5 saniye bekle (kalkışın tamamlanması için)
-        current_alt = self.current_position.absolute_altitude_m
+        print(f"-- 3️⃣ Takeoff to {target_altitude}m...")
+        await self.drone.action.set_takeoff_altitude(target_altitude)
+        await self.drone.action.takeoff()
         
-        if current_alt - start_alt > 8:  # En az 8 metre yükseldi mi?
-            print(f"✅ Kalkış başarılı: {current_alt - start_alt:.1f}m yükseldi")
-        else:
-            print(f"⚠️ Kalkış eksik: Sadece {current_alt - start_alt:.1f}m yükseldi")
-        await asyncio.sleep(1)  # Pozisyon stabilleşsin
+        print("-- 4️⃣ Takeoff tamamlanması bekleniyor...")
+        # Takeoff tamamlanana kadar bekle
+        for i in range(30):  # 30 saniye max
+            current_alt = self.current_position.absolute_altitude_m
+            altitude_diff = current_alt - self.home_position["alt"]
+            
+            if altitude_diff >= (target_altitude * 0.8):  # %80'ine ulaştı
+                print(f"✅ Takeoff OK: {altitude_diff:.1f}m")
+                break
+            
+            print(f"   Yükseliyor: {altitude_diff:.1f}m / {target_altitude}m")
+            await asyncio.sleep(1)
+        
+        await asyncio.sleep(3)  # Stabilizasyon
+        
+        print("-- 5️⃣ HOLD mode - pozisyon sabitleme...")
+        # KRITIK: Hold mode ile pozisyonu sabitle
+        await self.drone.action.hold()
+        await asyncio.sleep(2)
+        
+        print("-- 6️⃣ Offboard geçiş hazırlığı...")
+        # Mevcut pozisyonu al
+        current_alt = self.current_position.absolute_altitude_m
+        current_yaw = self.current_attitude.yaw_deg if self.current_attitude else self.home_position["yaw"]
+        altitude_diff = current_alt - self.home_position["alt"]
+        
+        print(f"   Mevcut: Alt={current_alt:.1f}m, Diff={altitude_diff:.1f}m, Yaw={current_yaw:.1f}°")
+        
+        # Offboard başlatma - 5 deneme
+        success = False
+        for attempt in range(5):
+            print(f"   Offboard deneme {attempt + 1}/5...")
+            
+            # Position setpoint gönder
+            await self.drone.offboard.set_position_ned(
+                PositionNedYaw(0.0, 0.0, -altitude_diff, current_yaw)
+            )
+            await asyncio.sleep(0.5)
+            
+            try:
+                await self.drone.offboard.start()
+                print("✅ Offboard mode başarılı!")
+                success = True
+                break
+            except OffboardError as e:
+                print(f"   Deneme {attempt + 1} fail: {e}")
+                await asyncio.sleep(1)
+        
+        if not success:
+            print("❌ Offboard geçiş başarısız!")
+            return False
+        
+        await asyncio.sleep(2)
+        print("🎮 Mission hazır - offboard aktif!")
+        return True
 
     async def end_mission(self):
         """
