@@ -46,20 +46,20 @@ class SwarmDiscovery(OffboardControl):
         for cycle in range(repeat_count):
 
             # 1️⃣ İleri git (başlangıç yönünde)
-            await self.go_forward_by_meter(long_distance, self.target_altitude, velocity, current_yaw)
+            await self.go_forward_by_meter(long_distance, velocity, current_yaw)
             await self.hold_mode(1.0, current_yaw)  # Stabilizasyon için kısa bekleme
             # 2️⃣ Sol 90° dön + yan hareket
-            await self.go_forward_by_meter(short_distance, self.target_altitude, velocity, current_yaw + 90.0)
+            await self.go_forward_by_meter(short_distance, velocity, current_yaw + 90.0)
             await self.hold_mode(1.0, current_yaw + 90.0)  # Stabilizasyon için kısa bekleme
             # 3️⃣ İleri git (180° ters yönde)  
-            await self.go_forward_by_meter(long_distance, self.target_altitude, velocity, current_yaw + 180.0)
+            await self.go_forward_by_meter(long_distance, velocity, current_yaw + 180.0)
             await self.hold_mode(1.0, current_yaw + 180.0)
             # 4️⃣ Sağ 90° dön + yan hareket (döngüyü tamamla)
-            await self.go_forward_by_meter(short_distance, self.target_altitude, velocity, current_yaw + 90.0)
+            await self.go_forward_by_meter(short_distance, velocity, current_yaw + 90.0)
             await self.hold_mode(1.0, current_yaw + 90.0)
         
         if current_yaw + 90 != self.home_position["yaw"]:
-            await self.go_forward_by_meter(long_distance, self.target_altitude, velocity, current_yaw)
+            await self.go_forward_by_meter(long_distance, velocity, current_yaw)
             await self.hold_mode(1.0, current_yaw)  # Stabilizasyon için kısa bekleme
             
 
@@ -69,8 +69,7 @@ class SwarmDiscovery(OffboardControl):
 
     async def square_oscillation_by_cam_fov(self, 
                                                 distance1=30.0, 
-                                                distance2=30.0, 
-                                
+                                                distance2=30.0,                               
                                                 velocity=2.0,
                                                 camera_fov_horizontal=62,
                                                 camera_fov_vertical=49,
