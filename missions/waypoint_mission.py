@@ -26,16 +26,16 @@ class WaypointMission(OffboardControl):
         self.get_turn_angle = CalculateDistance.get_turn_angle
         self.home_position = None  # 📍 Sabit home referans noktası
 
-    async def initialize_mission(self):
+    async def initialize_mission(self, target_altitude: float):
         """
         🏠 Mission Başlatma ve Home Position Kaydetme
         - Parent class'ın initialize_mission'ını çağırır
         - Home position bir kez kaydedilir ve değişmez
         """
-        await super().initialize_mission()
+        await super().initialize_mission(target_altitude)
         # Home pozisyonu parent class'ta ayarlanır, burada sadece kullanırız
     
-    async def go_to_position(self, target_lat, target_lon, target_alt=10.0, hold_time=0.0, target_speed=5.0):
+    async def go_to_position(self, target_lat: float, target_lon: float, target_alt: float, hold_time: float, target_speed: float):
         """
         🎯 GPS Koordinatına Hassas Navigasyon
         - 0.5 metre hassasiyetle hedefe gider
@@ -46,9 +46,9 @@ class WaypointMission(OffboardControl):
         Args:
             target_lat: Hedef latitude (GPS koordinatı)
             target_lon: Hedef longitude (GPS koordinatı)  
-            target_alt: Hedef yükseklik (metre) - varsayılan 10m
-            hold_time: Varışta bekleme süresi (saniye) - varsayılan 0
-            target_speed: Maksimum hız (m/s) - varsayılan 5m/s
+            target_alt: Hedef yükseklik (metre)
+            hold_time: Varışta bekleme süresi (saniye)
+            target_speed: Maksimum hız (m/s)
         """
         await asyncio.sleep(0.5)  # Stabilizasyon gecikmesi
         

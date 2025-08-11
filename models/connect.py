@@ -21,8 +21,7 @@ class DroneConnection(DroneStatus):
         self.drone: System = None  # MAVSDK drone nesnesi
         # Status task'ı constructor'da tanımlıyoruz çünkü birden fazla method'da kullanacağız
 
-    async def connect(self, system_address: str = "udp://:14541", 
-                      port: int=50060):
+    async def connect(self, system_address: str, port: int):
         """
         🚁 Drone'a Bağlan
         Args:

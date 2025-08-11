@@ -13,8 +13,8 @@ async def test_initial_yaw():
     
     drone_port = input("Drone portu (udp://:14540): ") or "udp://:14540"
     
-    await test.connect(system_address=drone_port)
-    await test.initialize_mission()
+    await test.connect(system_address=drone_port, port=50060)
+    await test.initialize_mission(target_altitude=10.0)
     
     # Home yaw açısını yazdır
     if test.home_position:

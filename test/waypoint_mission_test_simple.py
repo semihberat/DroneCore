@@ -42,10 +42,10 @@ async def test_waypoint_mission():
         mission = WaypointMission()
         
         print("🔗 Bağlanıyor...")
-        await mission.connect(sysid=int(drone_id), system_address=drone_port)
+        await mission.connect(system_address=drone_port, port=50060)
         
         print("🛫 Kalkıyor...")
-        await mission.initialize_mission()
+        await mission.initialize_mission(target_altitude=10.0)
         
         print(f"📍 {lat}, {lon}, {alt}m hedefine gidiyor...")
         await mission.go_to_position(lat, lon, alt, hold_time, 15.0)

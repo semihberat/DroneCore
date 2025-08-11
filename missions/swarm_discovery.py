@@ -105,7 +105,7 @@ async def test_swarm_discovery():
     drone_port = input("Drone portu (udp://:14540): ") or "udp://:14540"
     
     # 🚀 Mission sırası
-    await swarmdiscovery.connect(system_address=drone_port)        # 1. Bağlan
+    await swarmdiscovery.connect(system_address=drone_port, port=50060)        # 1. Bağlan
     await swarmdiscovery.initialize_mission(target_altitude=15.0)  # 2. Mission başlat
     await swarmdiscovery.hold_mode(1.0, swarmdiscovery.home_position["yaw"])                     # 2. Kalk
     await swarmdiscovery.square_oscillation_by_cam_fov(

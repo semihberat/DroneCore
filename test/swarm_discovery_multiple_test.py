@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from missions.swarm_discovery import SwarmDiscovery
 
-async def test_drone(drone_id, system_address, port, delay=0):
+async def test_drone(drone_id: int, system_address: str, port: int, delay: float):
     """
     🚁 Tek Drone Test Fonksiyonu
     Args:

@@ -26,8 +26,8 @@ async def test_connection():
         # Drone'a bağlan
         drone = DroneConnection()
         await drone.connect(
-            sysid=int(drone_id), 
-            system_address=drone_port
+            system_address=drone_port,
+            port=50060
         )
         
         print("✅ Bağlantı başarılı!")

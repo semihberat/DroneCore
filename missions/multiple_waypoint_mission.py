@@ -20,9 +20,9 @@ class MultipleWaypointMission(WaypointMission):
             await self.go_to_position(target_lat, target_lon, target_alt, hold_time, travel_time)
             await asyncio.sleep(0.2)
 
-    async def run_waypoint_mission(self, waypoints, system_address="udp://:14540", port=50060):
+    async def run_waypoint_mission(self, waypoints: list, system_address: str, port: int, target_altitude: float):
         await self.connect(system_address=system_address, port=port)
-        await self.initialize_mission()
+        await self.initialize_mission(target_altitude)
         await self.multiple_waypoint_mission(waypoints)
         await self.end_mission()
     
