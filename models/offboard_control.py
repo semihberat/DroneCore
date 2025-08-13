@@ -48,7 +48,7 @@ class OffboardControl(DroneConnection):
         
         print("-- 4️⃣ Takeoff tamamlanması bekleniyor...")
         # Takeoff tamamlanana kadar bekle
-        for i in range(30):  # 30 saniye max
+        while True:  # 30 saniye max
             current_alt = self.current_position.absolute_altitude_m
             altitude_diff = current_alt - self.home_position["alt"]
             
@@ -59,12 +59,12 @@ class OffboardControl(DroneConnection):
             print(f"   Yükseliyor: {altitude_diff:.1f}m / {target_altitude}m")
             await asyncio.sleep(1)
         
-        await asyncio.sleep(3)  # Stabilizasyon
+        await asyncio.sleep(0.1)  # Stabilizasyon
         
         print("-- 5️⃣ HOLD mode - pozisyon sabitleme...")
         # KRITIK: Hold mode ile pozisyonu sabitle
         await self.drone.action.hold()
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.1)
         
         print("-- 6️⃣ Offboard geçiş hazırlığı...")
         # Mevcut pozisyonu al

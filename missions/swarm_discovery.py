@@ -4,10 +4,10 @@ import os
 # 📂 Path ayarları - üst klasördeki modüllere erişim için
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.offboard_control import OffboardControl
-from optimization.distance_calculation import CalculateDistance
-from mavsdk.offboard import VelocityNedYaw
 from optimization.drone_vision_calculator import DroneVisionCalculator
-
+from aruco_mission.realtime_camera_viewer import RealtimeCameraViewer
+import threading
+from mavsdk.offboard import VelocityNedYaw
 class SwarmDiscovery(OffboardControl):
     """
     🔄 Swarm Discovery - Kare Dalga Oscillation Misyonu
@@ -17,7 +17,8 @@ class SwarmDiscovery(OffboardControl):
     """
     def __init__(self):
         super().__init__()
-            
+        self.pi_cam = RealtimeCameraViewer()  # Raspberry Pi kamerası sistemi 
+
     async def square_oscillation_by_meters(self, long_distance=50.0, short_distance=50.0, 
                                             velocity=10.0, repeat_count=10):
         """
@@ -44,7 +45,7 @@ class SwarmDiscovery(OffboardControl):
         
         # 🔁 10 döngü kare dalga pattern
         for cycle in range(repeat_count):
-
+            
             # 1️⃣ İleri git (başlangıç yönünde)
             await self.go_forward_by_meter(long_distance, velocity, current_yaw)
             await self.hold_mode(1.0, current_yaw)  # Stabilizasyon için kısa bekleme
@@ -81,43 +82,61 @@ class SwarmDiscovery(OffboardControl):
             image_width=image_width,           # Önerilen çözünürlük
             image_height=image_height           # 4:3 oran
         )
-
-        await self.square_oscillation_by_meters(
-            long_distance=distance1,  # 50 metre ileri
-            short_distance=drone_vision_calculator.calculate_ground_coverage(self.target_altitude)["width_m"] / 2,  # Yarım genişlik
-            repeat_count = int(distance2 /(drone_vision_calculator.calculate_ground_coverage(self.target_altitude)["width_m"] / 2)/2),  # Yarım genişlik
-
-            velocity=velocity,
+        threading.Thread(target=self.pi_cam.show_camera_with_detection, ).start()
         
+        sqosc_async_thread = asyncio.create_task(
+            self.square_oscillation_by_meters(
+                long_distance=distance1,
+                short_distance=drone_vision_calculator.calculate_ground_coverage(self.target_altitude)["width_m"] / 2,
+                repeat_count = int(distance2 /(drone_vision_calculator.calculate_ground_coverage(self.target_altitude)["width_m"] / 2)/2),
+                velocity=velocity, 
+            )
         )
-        
-async def test_swarm_discovery():
-    """
-    🧪 Swarm Discovery Test Fonksiyonu
-    - SwarmDiscovery class'ını test eder
-    - Kullanıcıdan drone port bilgisi alır
-    - Tam bir mission döngüsü çalıştırır
-    """
-    swarmdiscovery = SwarmDiscovery()  # 20 metre yükseklik
-    
-    # 🔌 Kullanıcıdan bağlantı bilgisi al
-    drone_port = input("Drone portu (udp://:14540): ") or "udp://:14540"
-    
-    # 🚀 Mission sırası
-    await swarmdiscovery.connect(system_address=drone_port, port=50060)        # 1. Bağlan
-    await swarmdiscovery.initialize_mission(target_altitude=15.0)  # 2. Mission başlat
-    await swarmdiscovery.hold_mode(1.0, swarmdiscovery.home_position["yaw"])                     # 2. Kalk
-    await swarmdiscovery.square_oscillation_by_cam_fov(
-        distance1=30.0,  # 50 metre ileri
-        distance2=30.0,     # 10 metre yan
-        velocity= 1.0,         # 2 m/s hız
-        camera_fov_horizontal=62,  # Pi Cam V2
-        camera_fov_vertical=49,    # Pi Cam V2
-        image_width=800,           # Önerilen çözünürlük
-        image_height=600           # 4:3 oran
-    )          # 3. Pattern uç
-    await swarmdiscovery.end_mission()                            # 4. İn
 
-if __name__ == "__main__":
-    # 🎯 Ana çalıştırma noktası
-    asyncio.run(test_swarm_discovery()) 
+        while not sqosc_async_thread.done() and not self.pi_cam.is_found:
+            await asyncio.sleep(0.1)  # 100ms bekle ve tekrar kontrol et
+
+        if self.pi_cam.is_found:
+            sqosc_async_thread.cancel()
+            await self.drone.offboard.set_velocity_ned(
+                VelocityNedYaw(0.0, 0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+            )
+            await self.hold_mode(1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+            
+            # Precision landing loop
+            print("🎯 ArUco bulundu! Precision landing başlıyor...")
+            
+            while self.pi_cam.is_found and not self.pi_cam.is_centered:
+                x, y, z = self.pi_cam.get_averaged_position()
+                print(f"📍 Pozisyon: X={x:.3f}m, Y={y:.3f}m, Z={z:.3f}m")
+                
+                # Merkeze hareket (çok yavaş ve hassas)
+                if abs(x) > 0.02 or abs(y) > 0.02:  # 2cm tolerans
+                    # Çok küçük hız ile düzeltme hareketi
+                    correction_speed = 0.5  # 0.5 m/s
+                    move_x = -x * correction_speed  # Kamera koordinatı tersine
+                    move_y = -y * correction_speed
+                    
+                    await self.drone.offboard.set_velocity_ned(
+                        VelocityNedYaw(move_x, move_y, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+                    )
+                    await asyncio.sleep(0.2)  # Kısa hareket
+                    
+                    # Durdur
+                    await self.drone.offboard.set_velocity_ned(
+                        VelocityNedYaw(0.0, 0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+                    )
+                    await asyncio.sleep(0.2)  # Stabilizasyon
+                else:
+                    break
+            
+            if self.pi_cam.is_centered:
+                print("✅ ArUco merkezlendi! Precision landing tamamlandı!")
+            else:
+                print("⚠️ ArUco kayboldu, precision landing durdu!")
+                
+        print("🔚 Misyon tamamlandı!")
+
+    
+    
+   
