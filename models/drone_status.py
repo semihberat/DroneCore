@@ -1,5 +1,6 @@
 import asyncio 
 from mavsdk import System 
+from services.xbee_service import XbeeService
 
 class DroneStatus:
     """
@@ -54,3 +55,6 @@ class DroneStatus:
         async for attitude in drone.telemetry.attitude_euler():
             self.current_attitude = attitude
             print(f"-- Attitude: Yaw={attitude.yaw_deg:.1f}°, Pitch={attitude.pitch_deg:.1f}°, Roll={attitude.roll_deg:.1f}°")
+
+   
+            

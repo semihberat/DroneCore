@@ -8,7 +8,7 @@ import os
 # Custom Libraries - Özel kütüphanelerimiz
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.drone_status import DroneStatus
-
+from services.xbee_service import XbeeService
 class DroneConnection(DroneStatus):
     """
     🔗 Drone Bağlantı Yöneticisi
@@ -16,9 +16,14 @@ class DroneConnection(DroneStatus):
     - Telemetri verilerini başlatır
     - Sistem sağlık kontrolü yapar
     """
-    def __init__(self):
+    def __init__(self, xbee_port = "/dev/ttyUSB0"):
         super().__init__()
         self.drone: System = None  # MAVSDK drone nesnesi
+        self.xbee_service = XbeeService(
+            message_received_callback=XbeeService.default_message_received_callback,
+            port=xbee_port,
+            max_queue_size=100
+        )  # XBee servisi
         # Status task'ı constructor'da tanımlıyoruz çünkü birden fazla method'da kullanacağız
 
     async def connect(self, system_address: str, port: int):
@@ -51,9 +56,17 @@ class DroneConnection(DroneStatus):
                 
         # 4️⃣ Telemetri verilerini sürekli takip et (arka plan task'ları)
         print("-- Starting telemetry tasks...")
-        self.status_text_task = asyncio.ensure_future(self.print_status_text(self.drone))    # Sistem mesajları
-        self._position_task = asyncio.ensure_future(self.update_position(self.drone))        # GPS koordinatları
-        self._velocity_task = asyncio.ensure_future(self.print_velocity(self.drone))         # Hız vektörleri
-        self._attitude_task = asyncio.ensure_future(self.update_attitude(self.drone))        # Yaw/Pitch/Roll açıları
+        self.status_text_task = asyncio.create_task(self.print_status_text(self.drone))    # Sistem mesajları
+        self._position_task = asyncio.create_task(self.update_position(self.drone))        # GPS koordinatları
+        self._velocity_task = asyncio.create_task(self.print_velocity(self.drone))         # Hız vektörleri
+        self._attitude_task = asyncio.create_task(self.update_attitude(self.drone))        # Yaw/Pitch/Roll açıları
         
-
+        # 5️⃣ XBee servisini başlat (GPS ve telemetri hazır olduktan sonra)
+        print("-- Starting XBee service...")
+        try:
+            self.xbee_service.listen()
+            print("✅ XBee service started successfully!")
+        except Exception as e:
+            print(f"⚠️ XBee service failed to start: {e}")
+            print("   Devam ediliyor... (XBee olmadan çalışabilir)")
+        

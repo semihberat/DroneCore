@@ -18,8 +18,8 @@ class OffboardControl(DroneConnection):
     - Mission başlatma ve bitirme işlemleri
     - Home position yönetimi
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, xbee_port: str = "/dev/ttyUSB0"):
+        super().__init__(xbee_port=xbee_port )
         self.target_altitude: float = None
 
     async def initialize_mission(self, target_altitude: float):
@@ -116,6 +116,7 @@ class OffboardControl(DroneConnection):
         self.status_text_task.cancel()
         self._position_task.cancel()
         self._velocity_task.cancel()
+        self._attitude_task.cancel()
         
         print("-- Mission ended. Stopping offboard control.")
         try:

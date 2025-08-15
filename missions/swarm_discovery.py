@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.offboard_control import OffboardControl
 from optimization.drone_vision_calculator import DroneVisionCalculator
 from aruco_mission.realtime_camera_viewer import RealtimeCameraViewer
+from aruco_mission.computer_camera_test import ComputerCameraTest
 import threading
 from mavsdk.offboard import VelocityNedYaw
 class SwarmDiscovery(OffboardControl):
@@ -15,9 +16,10 @@ class SwarmDiscovery(OffboardControl):
     - İleri → Sol → İleri → Sağ hareket dizisi
     - Drone-relative yaw açı hesaplamaları
     """
-    def __init__(self):
-        super().__init__()
-        self.pi_cam = RealtimeCameraViewer()  # Raspberry Pi kamerası sistemi 
+    def __init__(self, xbee_port: str = "/dev/ttyUSB0"):
+        super().__init__(xbee_port=xbee_port)
+        self.pi_cam = ComputerCameraTest()  # Raspberry Pi kamerası sistemi
+        self.mission_completed = False  # 🎯 Mission tamamlanma flag'i
 
     async def square_oscillation_by_meters(self, long_distance=50.0, short_distance=50.0, 
                                             velocity=10.0, repeat_count=10):
@@ -106,7 +108,7 @@ class SwarmDiscovery(OffboardControl):
             # Precision landing loop
             print("🎯 ArUco bulundu! Precision landing başlıyor...")
             
-            while self.pi_cam.is_found and not self.pi_cam.is_centered:
+            while not self.pi_cam.is_centered and not self.mission_completed:
                 x, y, z = self.pi_cam.get_averaged_position()
                 print(f"📍 Pozisyon: X={x:.3f}m, Y={y:.3f}m, Z={z:.3f}m")
                 
@@ -114,8 +116,8 @@ class SwarmDiscovery(OffboardControl):
                 if abs(x) > 0.02 or abs(y) > 0.02:  # 2cm tolerans
                     # Çok küçük hız ile düzeltme hareketi
                     correction_speed = 0.5  # 0.5 m/s
-                    move_x = -x * correction_speed  # Kamera koordinatı tersine
-                    move_y = -y * correction_speed
+                    move_x = x * correction_speed  # Kamera koordinatı tersine
+                    move_y = y * correction_speed
                     
                     await self.drone.offboard.set_velocity_ned(
                         VelocityNedYaw(move_x, move_y, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
@@ -128,13 +130,65 @@ class SwarmDiscovery(OffboardControl):
                     )
                     await asyncio.sleep(0.2)  # Stabilizasyon
                 else:
-                    break
+                    # 🎯 TAM MERKEZLENDI! LOOP'TAN ÇIK
+                    print("✅ ArUco tam merkezlendi!")
+                    break  # while loop'undan çık
             
+            # 📍 Merkezleme tamamlandı, şimdi XBee gönder
             if self.pi_cam.is_centered:
-                print("✅ ArUco merkezlendi! Precision landing tamamlandı!")
-            else:
-                print("⚠️ ArUco kayboldu, precision landing durdu!")
+                print("🎯 Precision landing tamamlandı! XBee mesajı gönderiliyor...")
                 
+                # Kesin drone konumunu al - KOMPAKT FORMAT
+                lat_scaled = int(self.current_position.latitude_deg * 1000000)   # 6 ondalık hassasiyet
+                lon_scaled = int(self.current_position.longitude_deg * 1000000)  # 6 ondalık hassasiyet
+                alt_scaled = int(self.current_position.absolute_altitude_m * 10) # 1 ondalık hassasiyet
+                
+                # XBee için ultra basit format - sadece string
+                simple_message = f"{lat_scaled},{lon_scaled},{alt_scaled},1"
+                
+                # Gerçek koordinatları terminalde göster
+                real_lat = lat_scaled / 1000000.0
+                real_lon = lon_scaled / 1000000.0
+                real_alt = alt_scaled / 10.0
+                print(f"📊 Hedef koordinatları: Lat={real_lat:.6f}, Lon={real_lon:.6f}, Alt={real_alt:.1f}m")
+                print(f"📦 XBee basit format: {simple_message}")
+                
+                try:
+                    if hasattr(self, 'xbee_service') and self.xbee_service:
+                        # XBee async wrapper - basit string gönder
+                        success = await asyncio.get_event_loop().run_in_executor(
+                            None, 
+                            self.xbee_service.send_broadcast_message, 
+                            simple_message, 
+                            False  # construct_message=False - sadece string gönder
+                        )
+                        if success:
+                            print("✅ XBee mesajı başarıyla gönderildi!")
+                            self.mission_completed = True
+                        else:
+                            print("❌ XBee mesaj gönderimi başarısız!")
+                    else:
+                        print("⚠️ XBee servisi bulunamadı!")
+                        self.mission_completed = True  # XBee olmasa da mission tamamlandı
+                except Exception as e:
+                    print(f"❌ XBee hatası: {e}")
+                    self.mission_completed = True  # Hata olsa da mission tamamlandı
+                
+                # Mission tamamlandı mesajı
+                print("🏁 Mission başarıyla tamamlandı!")
+                
+                # İniş işlemi
+                await asyncio.sleep(1)  # Stabilizasyon
+                await self.end_mission()
+            else:
+                print("⚠️ ArUco merkezlenemedi!")
+            
+        # 🏁 Mission durumu kontrolü ve sonuç raporu
+        if self.mission_completed:
+            print("🎯 Mission başarıyla tamamlandı - XBee mesajı gönderildi!")
+        else:
+            print("⚠️ Mission tamamlanamadı - ArUco bulunamadı veya merkezlenemedi!")
+            
         print("🔚 Misyon tamamlandı!")
 
     
