@@ -5,6 +5,7 @@ import logging
 import serial
 import functools
 import sys
+import asyncio
 from queue import Queue, Full
 
 from digi.xbee.devices import XBeeDevice
@@ -234,24 +235,3 @@ class XbeeService:
         else:
             logging.warning("XBee zaten kapalı.")
             
-def main():
-    """
-    XBeeController test fonksiyonu.
-    Bu fonksiyon, XBee cihazını başlatır, mesaj gönderir ve dinler.
-    """
-    xbee = XbeeService(message_received_callback=XbeeService.default_message_received_callback, port = "/dev/ttyUSB1", baudrate=57600, max_queue_size=100)
-    xbee.listen()
-    
-    # Test mesajı gönder
-    try:
-        while True:
-            # xbee.send_broadcast_message("oto mesaj", construct_message=True)
-            time.sleep(1)
-    except KeyboardInterrupt:
-        xbee.close()
-
-if __name__ == "__main__":
-    logging.info("XBeeController başlatılıyor...")
-    main()
-    logging.info("XBeeController testinin tüm adımları tamamlandı, çıkılıyor.")
-    sys.exit(0)

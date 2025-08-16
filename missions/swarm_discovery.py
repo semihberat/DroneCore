@@ -18,7 +18,7 @@ class SwarmDiscovery(OffboardControl):
     """
     def __init__(self, xbee_port: str = "/dev/ttyUSB0"):
         super().__init__(xbee_port=xbee_port)
-        self.pi_cam = ComputerCameraTest()  # Raspberry Pi kamerası sistemi
+        self.pi_cam = RealtimeCameraViewer()  # Raspberry Pi kamerası sistemi
         self.mission_completed = False  # 🎯 Mission tamamlanma flag'i
 
     async def square_oscillation_by_meters(self, long_distance=50.0, short_distance=50.0, 
@@ -179,6 +179,7 @@ class SwarmDiscovery(OffboardControl):
                 
                 # İniş işlemi
                 await asyncio.sleep(1)  # Stabilizasyon
+                await self.go_forward_by_meter(5.0, 1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
                 await self.end_mission()
             else:
                 print("⚠️ ArUco merkezlenemedi!")
