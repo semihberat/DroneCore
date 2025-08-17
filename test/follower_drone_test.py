@@ -54,8 +54,9 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
             await asyncio.sleep(1)
         lat_decimal = lat / 1000000.0
         lon_decimal = lon / 1000000.0
-        logging.info(f"Going to location: {lat_decimal}, {lon_decimal}, {alt}m AMSL")
-        await drone.action.goto_location(lat_decimal, lon_decimal, alt, 0)
+        target_altitude = absolute_altitude + alt
+        logging.info(f"Hedef konuma gidiliyor: {lat_decimal}, {lon_decimal}, {target_altitude}m AMSL (deniz seviyesinden)")
+        await drone.action.goto_location(lat_decimal, lon_decimal, target_altitude, 0)
         for _ in range(30):
             async for position in drone.telemetry.position():
                 current_lat = position.latitude_deg
