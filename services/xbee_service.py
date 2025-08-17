@@ -1,48 +1,51 @@
 import json
 import threading
 import time
-import logging
 import serial
 import functools
-import sys
-import asyncio
 from queue import Queue, Full
-
 from digi.xbee.devices import XBeeDevice
 from digi.xbee.exception import XBeeException, TransmitException, TimeoutException, InvalidOperatingModeException
 
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s - %(levelname)s]:\n\t%(message)s')
 
 def check_connected(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.device.is_open():
-            logging.error("XBee cihazı açık değil.")
+            print("XBee device is not connected. Please connect the device first.")
             return None
         return func(self, *args, **kwargs)
     return wrapper
 
+
 class XbeeService:
-    def __init__(self, message_received_callback, port="/dev/ttyUSB0", baudrate=57600, max_queue_size=20):
-        self.port = port
-        self.baudrate = baudrate
-        self.device = XBeeDevice(port, baudrate)
+    def __init__(self, message_received_callback: callable, port: str, baudrate: int, max_queue_size: int = 100) -> None:
+        """
+        Initialize XbeeService with required parameters.
+        Args:
+            message_received_callback: Function to call when a message is received.
+            port: Serial port for XBee device.
+            baudrate: Baudrate for serial communication.
+            max_queue_size: Maximum size for message queue.
+        """
+        self.port: str = port
+        self.baudrate: int = baudrate
+        self.device: XBeeDevice = XBeeDevice(port, baudrate)
         self.address = self.device.get_16bit_addr()
         self.message_received_callback = message_received_callback
-        self.recent_messages = Queue(maxsize=max_queue_size)
-        self.queue_stop_event = threading.Event()
-        # self.configure_xbee_api_mode()
-        self.queue_thread = threading.Thread(target=self.queue_processor, daemon=True)
+        self.recent_messages: Queue = Queue(maxsize=max_queue_size)
+        self.queue_stop_event: threading.Event = threading.Event()
+        self.queue_thread: threading.Thread = threading.Thread(target=self.queue_processor, daemon=True)
         if self.message_received_callback:
             self.queue_thread.start()
-            logging.warning("Mesaj kuyruğu işleme thread'i başlatıldı.")
+            print("Message queue processing thread started.")
         else:
-            logging.warning("Mesaj alındığında çağrılacak callback fonksiyonu belirtilmemiş.")
+            print("No callback function specified for received messages.")
 
     
-    def queue_processor(self):
+    def queue_processor(self) -> None:
         """
-        Mesaj kuyruğundan mesajları işleyen thread fonksiyonu.
+        Thread function to process messages from the queue.
         """
         while not self.queue_stop_event.is_set():
             if self.recent_messages.empty():
@@ -50,53 +53,40 @@ class XbeeService:
                 continue
             try:
                 message = self.recent_messages.get(timeout=0.5)
-                logging.info(f"Mesaj işleniyor: {message}")
-                
-                # Processed message dictionary için özel handler
                 self.handle_processed_message(message)
-                logging.info("Mesaj başarıyla işlendi.")
                 self.recent_messages.task_done()
             except Exception as e:
-                logging.error(f"Mesaj işlenirken hata oluştu: {e}")
+                print(f"Error processing message: {e}")
                 if not self.recent_messages.empty():
                     self.recent_messages.task_done()
     
-    def handle_processed_message(self, message_dict):
+    def handle_processed_message(self, message_dict: dict) -> None:
         """
-        İşlenmiş mesaj dictionary'sini işleyen fonksiyon.
-        message_dict format: {"sender": "...", "isBroadcast": True, "data": "...", "timestamp": ...}
+        Handle processed message dictionary.
+        Format: {"sender": str, "isBroadcast": bool, "data": str, "timestamp": int}
         """
         try:
             sender = message_dict.get("sender", "Unknown")
             is_broadcast = message_dict.get("isBroadcast", False)
             data = message_dict.get("data", "")
             timestamp = message_dict.get("timestamp", 0)
-            
-            logging.info(f"📨 XBee Mesajı Alındı:")
-            logging.info(f"   Gönderen: {sender}")
-            logging.info(f"   Broadcast: {is_broadcast}")
-            logging.info(f"   Veri: {data}")
-            logging.info(f"   Zaman: {timestamp}")
-            
-            # Eğer özel bir callback varsa ve farklıysa onu da çağır
-            if (hasattr(self, 'custom_message_handler') and 
-                callable(self.custom_message_handler)):
+            print(f"XBee Message Received: sender={sender}, broadcast={is_broadcast}, data={data}, timestamp={timestamp}")
+            if hasattr(self, 'custom_message_handler') and callable(self.custom_message_handler):
                 self.custom_message_handler(message_dict)
-                
         except Exception as e:
-            logging.error(f"İşlenmiş mesaj handle edilirken hata: {e}")
-    
-    def set_custom_message_handler(self, handler_func):
+            print(f"Error handling processed message: {e}")
+
+    def set_custom_message_handler(self, handler_func: callable) -> None:
         """
-        Özel mesaj işleyici fonksiyonu ayarlar.
-        Bu fonksiyon işlenmiş mesaj dictionary'si alır.
+        Set a custom message handler function.
+        The function should accept a processed message dictionary.
         """
         self.custom_message_handler = handler_func
-        logging.info("Özel mesaj işleyici ayarlandı.")
-    
-    def default_message_received_callback(self, message):
+        print("Custom message handler set.")
+
+    def default_message_received_callback(self, message) -> None:
         """
-        Xbee'den gelen mesajları işleyen callback fonksiyonu.
+        Callback function to process messages received from XBee.
         """
         try:
             if not self.queue_thread.is_alive() and self.message_received_callback:
@@ -109,129 +99,100 @@ class XbeeService:
                 "data": message_data,
                 "timestamp": message.timestamp
             }
-            logging.debug(f"Mesaj alındı: {message_full}")
             try:
                 self.recent_messages.put_nowait(message_full)
-                logging.info("Mesaj kuyruğa eklendi")
             except Full:
-                logging.error(f"Mesaj kuyruğa eklenemedi, kuyruk dolu.")
-                # Kuyruk doluysa en eski mesajı sil ve yeni mesajı ekle
-                logging.info("En eski mesaj siliniyor ve yeni mesaj ekleniyor.")
                 self.recent_messages.get_nowait()
                 self.recent_messages.put_nowait(message_full)
         except Exception as e:
-            logging.error(f"Mesaj işlenirken hata oluştu: {e}")
-    
-    def configure_xbee_api_mode(self):
+            print(f"Error processing received message: {e}")
+
+    def configure_xbee_api_mode(self) -> bool:
         """
-        XBee cihazını API moduna geçirir.
+        Set XBee device to API mode.
         """
         try:
-            logging.info("XBee cihazı API moduna geçiriliyor...")
-            # Serial bağlantı kur
             ser = serial.Serial(self.port, self.baudrate, timeout=2)
-            time.sleep(1)  # Bağlantının stabilleşmesi için bekle
-            # Command moduna geç
+            time.sleep(1)
             ser.write(b'+++')
             time.sleep(2)
-            response = ser.read(ser.in_waiting)
-            logging.info(f"Command mode response: {response}")
-            # API mode 1'e geç (AP=1)
+            ser.read(ser.in_waiting)
             ser.write(b'ATAP1\r')
             time.sleep(0.5)
-            response = ser.read(ser.in_waiting)
-            logging.info(f"API mode response: {response}")
-            # Ayarları kaydet
+            ser.read(ser.in_waiting)
             ser.write(b'ATWR\r')
             time.sleep(0.5)
-            response = ser.read(ser.in_waiting)
-            logging.info(f"Write response: {response}")
-            # Command modundan çık
+            ser.read(ser.in_waiting)
             ser.write(b'ATCN\r')
             time.sleep(0.5)
             ser.close()
-            logging.info("XBee başarıyla API moduna geçirildi.")
+            print("XBee set to API mode.")
             return True
-            
         except Exception as e:
-            logging.error(f"XBee API moduna geçirilirken hata: {e}")
+            print(f"Error setting XBee to API mode: {e}")
             return False
 
-    def listen(self):
+    def listen(self) -> None:
         """
-        Xbee mesajlarını dinler ve mesaj gelince callback fonksiyonunu çağırır.
+        Listen for XBee messages and call the callback function when a message is received.
         """
         try:
             if not self.device.is_open():
                 self.device.open()
             self.device.add_data_received_callback(self.default_message_received_callback)
-            logging.info("XBee dinleniyor...")
+            print("Listening for XBee messages...")
         except Exception as e:
-            logging.error(f"XBee açılamadı: {e}")
+            print(f"Failed to open XBee: {e}")
             raise
     
-    def construct_message(self, data):
+    def construct_message(self, data: str) -> bytes:
         """
-        Verilen mesajı JSON formatına çevirir.
+        Convert the given data to JSON format for XBee transmission.
         """
         message = {
             "i": self.address,
             "d": data,
             "t": int(time.time()*1000)
         }
-        logging.debug(f"Mesaj yapılandırıldı.")
         return json.dumps(message, ensure_ascii=False).replace("\n", "").replace(" ", "").encode('utf-8')
     
     @check_connected
-    def send_broadcast_message(self, data, construct_message=False):
+    def send_broadcast_message(self, data: str, construct_message: bool) -> bool:
         """
-        Xbee üzerinden veri yayınlar (broadcast eder).
+        Broadcast data over XBee.
         """
         try:
-            if construct_message:
-                message = self.construct_message(data)
-            else:
-                message = data
-            logging.debug(f"Broadcast mesajı yapılandırıldı: {message}")
+            message = self.construct_message(data) if construct_message else data
             self.device.send_data_broadcast(message)
-            logging.info(f"Mesaj gönderildi:\n Mesaj: {data}\nAlıcı: Broadcast")
+            print(f"Broadcast message sent: {data}")
             return True
-        except XBeeException as e:
-            logging.error(f"XBee Hatası: {e}")
-            return False
-        except TimeoutException as e:
-            logging.error(f"Zaman aşımı hatası: {e}")
-            return False
-        except TransmitException as e:
-            logging.error(f"Transmit hatası: {e}")
-            return False
-        except InvalidOperatingModeException as e:
-            logging.error(f"Geçersiz çalışma modu hatası: {e}")
+        except (XBeeException, TimeoutException, TransmitException, InvalidOperatingModeException) as e:
+            print(f"XBee error: {e}")
             return False
     
     @check_connected
-    def send_private_message(self, receiver, data):
+    def send_private_message(self, receiver, data: str) -> bool:
         """
-        Xbee üzerinden bir alıcıya veri gönderir.
+        Send data to a specific receiver via XBee.
         """
         message = self.construct_message(data)
         try:
             self.device.send_data(receiver, message)
-            logging.info(f"Mesaj gönderildi:\n Mesaj: {data}\nAlıcı: {receiver}")
+            print(f"Private message sent to {receiver}: {data}")
             return True
         except Exception as e:
-            logging.error(f"Mesaj gönderilemedi: {e}")
+            print(f"Failed to send private message: {e}")
             return False
     
-    def close(self):
+    def close(self) -> None:
         """
-        XBee cihazını kapatır ve mesaj kuyruğu işleme thread'ini durdurur.
+        Close the XBee device and stop the message queue processing thread.
         """
         if self.device.is_open():
             self.device.close()
-            logging.info("XBee kapatıldı.")
+            print("XBee closed.")
             self.queue_stop_event.set()
-            logging.info("Mesaj kuyruğu işleme thread'i durduruldu.")
+            print("Message queue processing thread stopped.")
         else:
-            logging.warning("XBee zaten kapalı.")
-            
+            print("XBee already closed.")
+
