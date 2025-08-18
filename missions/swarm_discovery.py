@@ -132,17 +132,26 @@ class SwarmDiscovery(OffboardControl):
                 print(f"XBee message: {simple_message}")
                 try:
                     if hasattr(self, 'xbee_service') and self.xbee_service:
-                        success = await asyncio.get_event_loop().run_in_executor(
-                            None, 
-                            self.xbee_service.send_broadcast_message, 
-                            simple_message, 
-                            False
-                        )
+                        success = False
+                        for attempt in range(10):  # Try up to 10 times
+                            result = await asyncio.get_event_loop().run_in_executor(
+                                None,
+                                self.xbee_service.send_broadcast_message,
+                                simple_message,
+                                False
+                            )
+                            if result:
+                                print(f"✅ XBee message sent on attempt {attempt+1}")
+                                success = True
+                                break
+                            else:
+                                print(f"⚠️ Attempt {attempt+1} failed, retrying...")
+                                await asyncio.sleep(0.1)  # Wait 100ms
                         if success:
-                            print("XBee message sent.")
                             self.mission_completed = True
                         else:
-                            print("XBee message failed.")
+                            print("❌ XBee message failed after 10 attempts.")
+                            self.mission_completed = True  # End mission anyway
                     else:
                         print("XBee service not found.")
                         self.mission_completed = True
