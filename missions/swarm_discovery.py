@@ -35,10 +35,16 @@ class SwarmDiscovery(OffboardControl):
         try:
             message_data = message.data.decode('utf-8')
             # Mesaj formatı: "lat,lon,alt,1" gibi, sonundaki 1 iniş komutu
-            if message_data.strip().endswith(",1"):
+            if message_data.strip().endswith(",1") and not self.mission_completed:
                 print(f"🚨 XBee'den iniş komutu alındı: {message_data}. Drone olduğu yere iniyor!")
-                # İniş fonksiyonunu başlat
-                asyncio.create_task(self.land_here())
+                self.mission_completed = True
+                # Event loop kontrolü
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self.land_here())
+                except RuntimeError:
+                    # Eğer event loop yoksa, ana thread'den coroutine başlat
+                    asyncio.run(self.land_here())
         except Exception as e:
             print(f"XBee mesajı işlenirken hata: {e}")
 
