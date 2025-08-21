@@ -44,7 +44,7 @@ async def test_swarm_discovery() -> None:
     tasks = [
         test_drone(
             drone_id=1,
-            system_address="udp://:14540",
+            system_address="serial:///dev/ttyACM0:57600",
             port=50060,
             delay=0
         ),

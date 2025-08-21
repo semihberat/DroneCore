@@ -157,14 +157,26 @@ async def drone_mission(lat: int, lon: int, alt_unused: int, command: int) -> No
     lon_decimal = lon / 1_000_000.0
     target_amsl = home_abs_amsl + CRUISE_REL_ALT  # hedef AMSL, sabit seyir AGL'ye göre
 
+    # Hedefe gidiş açısını (yaw) hesapla
+    async for position in drone.telemetry.position():
+        current_lat = position.latitude_deg
+        current_lon = position.longitude_deg
+        break
+    import math
+    delta_lat = lat_decimal - current_lat
+    delta_lon = lon_decimal - current_lon
+    yaw_rad = math.atan2(delta_lon, delta_lat)
+    yaw_deg = math.degrees(yaw_rad)
+
     logging.info(
         f"Hedef konuma gidiliyor: lat={lat_decimal:.7f}, lon={lon_decimal:.7f}, "
-        f"{target_amsl:.2f} m AMSL (CRUISE_REL_ALT={CRUISE_REL_ALT} m AGL)."
+        f"{target_amsl:.2f} m AMSL, yaw={yaw_deg:.2f}° (CRUISE_REL_ALT={CRUISE_REL_ALT} m AGL)."
     )
 
-    # GOTO (AMSL)
+    # GOTO (AMSL + dinamik yaw)
     try:
-        await drone.action.goto_location(lat_decimal, lon_decimal, target_amsl, 0)
+        await drone.action.goto_location(lat_decimal, lon_decimal, target_amsl, yaw_deg)
+        await drone.action.set_current_speed(1.0)
     except Exception as e:
         logging.error(f"goto_location error: {e}")
         try:
@@ -265,7 +277,7 @@ def main() -> None:
     # XBee servisini başlat
     xbee = XbeeService(
         message_received_callback=XbeeService.default_message_received_callback,
-        port="/dev/ttyUSB1",
+        port="/dev/ttyUSB0",
         baudrate=57600,
         max_queue_size=100,
     )
