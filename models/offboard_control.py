@@ -42,7 +42,7 @@ class OffboardControl(DroneConnection):
         while True:
             current_alt = self.current_position.absolute_altitude_m
             altitude_diff = current_alt - self.home_position["alt"]
-            if altitude_diff >= (target_altitude * 0.8):
+            if altitude_diff >= (target_altitude * 0.9):
                 print(f"Takeoff OK: {altitude_diff:.1f}m")
                 break
             await asyncio.sleep(1)
@@ -115,7 +115,7 @@ class OffboardControl(DroneConnection):
         target_altitude_abs = self.home_position["alt"] + self.target_altitude
         altitude_error = target_altitude_abs - current_altitude
         max_vertical_speed = 2.0
-        altitude_gain = 0.8
+        altitude_gain = 0.9
         vertical_velocity = altitude_error * altitude_gain
         vertical_velocity = max(-max_vertical_speed, min(max_vertical_speed, vertical_velocity))
         vertical_velocity_ned = -vertical_velocity

@@ -48,6 +48,7 @@ async def test_swarm_discovery() -> None:
             port=50060,
             delay=0
         ),
+   
         # Add more test_drone calls here for additional drones if needed
     ]
     try:
