@@ -11,7 +11,6 @@ import threading
 from mavsdk.offboard import VelocityNedYaw
 from services.xbee_service import XbeeService
 
-RealtimeCameraViewer = ComputerCameraTest
 
 class SwarmDiscovery(OffboardControl):
     """
