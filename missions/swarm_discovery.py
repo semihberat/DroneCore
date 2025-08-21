@@ -22,11 +22,39 @@ class SwarmDiscovery(OffboardControl):
         self.pi_cam = RealtimeCameraViewer()
         self.mission_completed = False
         self.xbee_service = XbeeService(
-            message_received_callback=XbeeService.default_message_received_callback,
+            message_received_callback=self.xbee_message_received_callback,
             port=xbee_port,
             max_queue_size=100,
             baudrate=57600
         )
+
+    def xbee_message_received_callback(self, message):
+        """
+        XBee'den gelen mesajı işleyen callback. Eğer başka bir drone'dan iniş komutu gelirse, bu drone olduğu yere iner.
+        """
+        try:
+            message_data = message.data.decode('utf-8')
+            # Mesaj formatı: "lat,lon,alt,1" gibi, sonundaki 1 iniş komutu
+            if message_data.strip().endswith(",1"):
+                print(f"🚨 XBee'den iniş komutu alındı: {message_data}. Drone olduğu yere iniyor!")
+                # İniş fonksiyonunu başlat
+                asyncio.create_task(self.land_here())
+        except Exception as e:
+            print(f"XBee mesajı işlenirken hata: {e}")
+
+    async def land_here(self):
+        """
+        Drone'u olduğu yere indirir.
+        """
+        try:
+            print("İniş başlatılıyor...")
+            await self.hold_mode(1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+            await self.go_forward_by_meter(0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+            await self.end_mission()
+            self.mission_completed = True
+            print("Drone başarıyla indi.")
+        except Exception as e:
+            print(f"İniş sırasında hata: {e}")
 
     async def connect(self, system_address: str, port: int):
         await super().connect(system_address=system_address, port=port)
