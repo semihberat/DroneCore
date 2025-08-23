@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from missions.swarm_discovery import SwarmDiscovery
 
-async def test_drone(drone_id: int, system_address: str, port: int, delay: float, xbee_port: str, use_computer_camera = False) -> None:
+async def test_drone(drone_id: int, system_address: str, port: int, delay: float, xbee_port: str, use_computer_camera:bool = False) -> None:
     """
     Single drone test function.
     Args:
@@ -48,8 +48,9 @@ async def test_swarm_discovery() -> None:
             port=50060,
             delay=0,
             xbee_port="/dev/ttyUSB0",
-            use_computer_camera=True
+            use_computer_camera=False
         ),
+   
      
         # Add more test_drone calls here for additional drones if needed
     ]

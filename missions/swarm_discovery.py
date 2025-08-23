@@ -23,6 +23,7 @@ class SwarmDiscovery(OffboardControl):
         self.pi_cam = RealtimeCameraViewer() if not use_computer_camera else ComputerCameraTest()
         self.mission_completed = False
         self.landing_command_received = False  # Command 1 için flag
+        self.feedback_received = False  # Feedback alındı mı flag'i
         self.xbee_service = XbeeService(
             message_received_callback=XbeeService.default_message_received_callback,
             port=xbee_port,
@@ -55,10 +56,18 @@ class SwarmDiscovery(OffboardControl):
                 command = int(parts[3])
                 print(f"Parsed data - Lat: {lat}, Lon: {lon}, Alt: {alt}, Command: {command}")
                 
-                # Command 1 ise flag set et (iniş ana loop'ta yapılacak)
                 if command == 1:
-                    print("Command 1 received - setting landing flag!")
+                    print("Command 1 received - sending feedback and setting landing flag!")
+                    # Feedback gönder (command=2)
+                    self.send_feedback_message(lat, lon, alt)
+                    # Landing flag set et
                     self.landing_command_received = True
+                    
+                elif command == 2:
+                    print("Feedback received - message confirmed!")
+                    # Feedback alındı, iniş yapabilir
+                    self.feedback_received = True
+                    
                 else:
                     print(f"Command {command} - no action taken")
                     
@@ -66,6 +75,32 @@ class SwarmDiscovery(OffboardControl):
             print(f"Data parse error: {e}")
         except Exception as e:
             print(f"Message handler error: {e}")
+    
+    def send_feedback_message(self, lat: int, lon: int, alt: int) -> None:
+        """
+        Send feedback message (command=2) to confirm message received.
+        """
+        try:
+            feedback_message = f"{lat},{lon},{alt},2"
+            print(f"Sending feedback: {feedback_message}")
+            
+            # XBee ile feedback gönder
+            if hasattr(self, 'xbee_service') and self.xbee_service:
+                # Thread-safe gönderim
+                import threading
+                def send_feedback():
+                    try:
+                        self.xbee_service.send_broadcast_message(feedback_message, False)
+                        print("Feedback sent successfully!")
+                    except Exception as e:
+                        print(f"Feedback send error: {e}")
+                
+                threading.Thread(target=send_feedback, daemon=True).start()
+            else:
+                print("XBee service not available for feedback")
+                
+        except Exception as e:
+            print(f"Feedback message error: {e}")
 
     async def square_oscillation_by_meters(self, long_distance: float, short_distance: float, velocity: float, repeat_count: int):
         """
@@ -203,9 +238,10 @@ class SwarmDiscovery(OffboardControl):
                 alt_scaled = int(self.current_position.absolute_altitude_m * 10)
                 simple_message = f"{lat_scaled},{lon_scaled},{alt_scaled},1"
                 print(f"XBee message: {simple_message}")
+                
+                # Mesajı gönder
                 try:
                     if hasattr(self, 'xbee_service') and self.xbee_service:
-                        # XBee mesajını thread pool executor ile gönder
                         loop = asyncio.get_running_loop()
                         success = await loop.run_in_executor(
                             None, 
@@ -214,16 +250,33 @@ class SwarmDiscovery(OffboardControl):
                             False
                         )
                         if success:
-                            print("XBee message sent.")
+                            print("XBee message sent. Waiting for feedback...")
+                            # Feedback bekleyelim (timeout ile)
+                            feedback_timeout = 10  # 10 saniye bekle
+                            feedback_start = asyncio.get_event_loop().time()
+                            
+                            while not self.feedback_received:
+                                if asyncio.get_event_loop().time() - feedback_start > feedback_timeout:
+                                    print("Feedback timeout - proceeding without confirmation")
+                                    break
+                                await asyncio.sleep(0.1)
+                            
+                            if self.feedback_received:
+                                print("Feedback received! Starting landing sequence...")
+                            else:
+                                print("No feedback received, but proceeding...")
+                            
                             self.mission_completed = True
                         else:
                             print("XBee message failed.")
+                            self.mission_completed = True
                     else:
                         print("XBee service not found.")
                         self.mission_completed = True
                 except Exception as e:
                     print(f"XBee error: {e}")
                     self.mission_completed = True
+                
                 print("Mission complete.")
                 await asyncio.sleep(1)
                 await self.go_forward_by_meter(5.0, 1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)

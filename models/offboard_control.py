@@ -9,8 +9,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.connect import DroneConnection
 from optimization.distance_calculation import CalculateDistance
 
-
-
 class OffboardControl(DroneConnection):
     """
     OffboardControl: Combines connection and movement logic for missions.
