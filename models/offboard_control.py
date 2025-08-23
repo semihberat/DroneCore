@@ -55,9 +55,10 @@ class OffboardControl(DroneConnection):
         current_yaw = self.current_attitude.yaw_deg if self.current_attitude else self.home_position["yaw"]
         altitude_diff = current_alt - self.home_position["alt"]
         success = False
+        
         for attempt in range(5):
-            await self.drone.offboard.set_position_ned(
-                PositionNedYaw(0.0, 0.0, -altitude_diff, current_yaw)
+            await self.drone.offboard.set_velocity_ned(
+                VelocityNedYaw(0.0, 0.0, 0, 0)
             )
             await asyncio.sleep(0.5)
             try:

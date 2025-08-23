@@ -81,12 +81,12 @@ def main() -> None:
     XBeeController test function. Starts XBee device, sends and receives messages.
     """
     import asyncio
-    received_data = None
+ 
     def custom_message_handler(message_dict: dict) -> None:
         """
         Custom callback to handle received message data.
         """
-        nonlocal received_data
+    
         data = message_dict.get("data", "")
         logging.info(f"Received data: {data}")
         try:

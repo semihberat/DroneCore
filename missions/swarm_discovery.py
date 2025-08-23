@@ -11,25 +11,27 @@ import threading
 from mavsdk.offboard import VelocityNedYaw
 from services.xbee_service import XbeeService
 
-RealtimeCameraViewer = ComputerCameraTest
+
+
 
 class SwarmDiscovery(OffboardControl):
     """
     SwarmDiscovery mission: square oscillation flight and ArUco-based precision landing.
     """
-    def __init__(self, xbee_port: str = None):
+    def __init__(self, xbee_port: str = None, use_computer_camera: bool = False):
         super().__init__()
-        self.pi_cam = RealtimeCameraViewer()
+        self.pi_cam = RealtimeCameraViewer() if not use_computer_camera else ComputerCameraTest()
         self.mission_completed = False
+        self.landing_command_received = False  # Command 1 için flag
         self.xbee_service = XbeeService(
             message_received_callback=XbeeService.default_message_received_callback,
             port=xbee_port,
             max_queue_size=100,
             baudrate=57600
         )
-
-    async def connect(self, system_address: str, port: int):
-        await super().connect(system_address=system_address, port=port)
+        # Instance method'u callback olarak kullan
+        self.xbee_service.set_custom_message_handler(self.handle_xbee_message)
+        
         print("-- Starting XBee service...")
         try:
             self.xbee_service.listen()
@@ -37,6 +39,33 @@ class SwarmDiscovery(OffboardControl):
         except Exception as e:
             print(f"⚠️ XBee service failed to start: {e}")
             print("   Continuing without XBee...")
+
+    def handle_xbee_message(self, message_dict: dict) -> None:
+        """
+        Handle received XBee message data.
+        """
+        data = message_dict.get("data", "")
+        print(f"Received data: {data}")
+        try:
+            parts = data.split(',')
+            if len(parts) == 4:
+                lat = int(parts[0])
+                lon = int(parts[1])
+                alt = int(parts[2])
+                command = int(parts[3])
+                print(f"Parsed data - Lat: {lat}, Lon: {lon}, Alt: {alt}, Command: {command}")
+                
+                # Command 1 ise flag set et (iniş ana loop'ta yapılacak)
+                if command == 1:
+                    print("Command 1 received - setting landing flag!")
+                    self.landing_command_received = True
+                else:
+                    print(f"Command {command} - no action taken")
+                    
+        except ValueError as e:
+            print(f"Data parse error: {e}")
+        except Exception as e:
+            print(f"Message handler error: {e}")
 
     async def square_oscillation_by_meters(self, long_distance: float, short_distance: float, velocity: float, repeat_count: int):
         """
@@ -83,11 +112,20 @@ class SwarmDiscovery(OffboardControl):
             image_width=image_width,
             image_height=image_height
         )
-        threading.Thread(target=self.pi_cam.show_camera_with_detection, ).start()
+        
+        # Camera thread'ini daemon olarak başlat ve referansını sakla
+        camera_thread = threading.Thread(
+            target=self.pi_cam.show_camera_with_detection, 
+            daemon=True
+        )
+        camera_thread.start()
+        
         ground_coverage = drone_vision_calculator.calculate_ground_coverage(self.target_altitude)
         short_distance = ground_coverage["width_m"] / 2
         repeat_count = int(distance2 / short_distance / 2)
-        sqosc_async_thread = asyncio.create_task(
+        
+        # Square oscillation task'ını oluştur
+        sqosc_task = asyncio.create_task(
             self.square_oscillation_by_meters(
                 long_distance=distance1,
                 short_distance=short_distance,
@@ -95,16 +133,44 @@ class SwarmDiscovery(OffboardControl):
                 velocity=velocity
             )
         )
-        while not sqosc_async_thread.done() and not self.pi_cam.is_found:
-            await asyncio.sleep(0.1)
+        
+        # ArUco bulunana kadar veya task tamamlanana kadar bekle
+        while not sqosc_task.done() and not self.pi_cam.is_found:
+            # Command 1 geldi mi real-time kontrol et
+            if self.landing_command_received:
+                print("Landing command received during search - starting normal landing immediately!")
+                await self.end_mission()
+                return
+            await asyncio.sleep(0.01)  # Daha hızlı kontrol
+        
+        # ArUco bulunduktan sonra command 1 geldi mi kontrol et
+        if self.landing_command_received:
+            print("Landing command received before ArUco found - starting normal landing...")
+            await self.end_mission()
+            return
+            
         if self.pi_cam.is_found:
-            sqosc_async_thread.cancel()
+            # Square oscillation task'ını güvenli şekilde iptal et
+            if not sqosc_task.done():
+                sqosc_task.cancel()
+                try:
+                    await sqosc_task
+                except asyncio.CancelledError:
+                    print("Square oscillation task cancelled successfully")
+            
             await self.drone.offboard.set_velocity_ned(
                 VelocityNedYaw(0.0, 0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
             )
             await self.hold_mode(1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
             print("ArUco found! Precision landing started...")
-            while not self.pi_cam.is_centered and not self.mission_completed:
+            
+            # Precision landing sırasında command 1 geldi mi kontrol et
+            while not self.pi_cam.is_centered and not self.mission_completed and not self.landing_command_received:
+                # Command 1 geldi mi real-time kontrol et
+                if self.landing_command_received:
+                    print("Landing command received during precision landing - stopping and landing immediately!")
+                    break
+                
                 x, y, z = self.pi_cam.get_averaged_position()
                 # Only print if not centered
                 if abs(x) > 0.02 or abs(y) > 0.02:
@@ -115,14 +181,21 @@ class SwarmDiscovery(OffboardControl):
                     await self.drone.offboard.set_velocity_ned(
                         VelocityNedYaw(move_x, move_y, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
                     )
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(0.1)  # Daha hızlı
                     await self.drone.offboard.set_velocity_ned(
                         VelocityNedYaw(0.0, 0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
                     )
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(0.1)  # Daha hızlı
                 else:
                     print("ArUco centered!")
                     break
+            
+            # ArUco ortalandıktan sonra command 1 geldi mi kontrol et
+            if self.landing_command_received:
+                print("Landing command received after ArUco centered - starting normal landing...")
+                await self.end_mission()
+                return
+                
             if self.pi_cam.is_centered:
                 print("Precision landing complete. Sending XBee message...")
                 lat_scaled = int(self.current_position.latitude_deg * 1000000)
@@ -132,7 +205,9 @@ class SwarmDiscovery(OffboardControl):
                 print(f"XBee message: {simple_message}")
                 try:
                     if hasattr(self, 'xbee_service') and self.xbee_service:
-                        success = await asyncio.get_event_loop().run_in_executor(
+                        # XBee mesajını thread pool executor ile gönder
+                        loop = asyncio.get_running_loop()
+                        success = await loop.run_in_executor(
                             None, 
                             self.xbee_service.send_broadcast_message, 
                             simple_message, 
@@ -155,10 +230,28 @@ class SwarmDiscovery(OffboardControl):
                 await self.end_mission()
             else:
                 print("ArUco not centered.")
+        
+        # Final command 1 kontrolü
+        if self.landing_command_received:
+            print("Landing command received - starting normal landing...")
+            await self.end_mission()
+            return
+        
         if self.mission_completed:
             print("Mission complete - XBee message sent.")
         else:
             print("Mission failed - ArUco not found or not centered.")
+        
+        # Cleanup: Camera thread'ini kontrol et
+        if camera_thread.is_alive():
+            print("Camera thread cleanup...")
+            # Camera thread'i güvenli şekilde sonlandır
+            try:
+                if hasattr(self.pi_cam, 'stop_camera'):
+                    self.pi_cam.stop_camera()
+            except Exception as e:
+                print(f"Camera cleanup error: {e}")
+        
         print("Mission finished!")
 
 

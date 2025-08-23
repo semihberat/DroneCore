@@ -3,6 +3,7 @@ import threading
 import time
 import serial
 import functools
+import asyncio
 from queue import Queue, Full
 from digi.xbee.devices import XBeeDevice
 from digi.xbee.exception import XBeeException, TransmitException, TimeoutException, InvalidOperatingModeException
@@ -72,7 +73,27 @@ class XbeeService:
             timestamp = message_dict.get("timestamp", 0)
             print(f"XBee Message Received: sender={sender}, broadcast={is_broadcast}, data={data}, timestamp={timestamp}")
             if hasattr(self, 'custom_message_handler') and callable(self.custom_message_handler):
-                self.custom_message_handler(message_dict)
+                # Async method kontrolü ve uygun çağrım
+                if asyncio.iscoroutinefunction(self.custom_message_handler):
+                    # Async method ise event loop'ta çalıştır
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(self.custom_message_handler(message_dict))
+                    except RuntimeError:
+                        # Event loop çalışmıyorsa yeni thread'de başlat
+                        import threading
+                        def run_async_handler():
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                new_loop.run_until_complete(self.custom_message_handler(message_dict))
+                            finally:
+                                new_loop.close()
+                        
+                        threading.Thread(target=run_async_handler, daemon=True).start()
+                else:
+                    # Sync method ise normal çağır
+                    self.custom_message_handler(message_dict)
         except Exception as e:
             print(f"Error handling processed message: {e}")
 

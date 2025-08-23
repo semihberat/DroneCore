@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from missions.swarm_discovery import SwarmDiscovery
 
-async def test_drone(drone_id: int, system_address: str, port: int, delay: float) -> None:
+async def test_drone(drone_id: int, system_address: str, port: int, delay: float, xbee_port: str, use_computer_camera = False) -> None:
     """
     Single drone test function.
     Args:
@@ -19,7 +19,7 @@ async def test_drone(drone_id: int, system_address: str, port: int, delay: float
         if delay > 0:
             print(f"Drone {drone_id} waiting {delay} seconds before start...")
             await asyncio.sleep(delay)
-        swarm_drone = SwarmDiscovery(xbee_port="/dev/ttyUSB0")  # Adjust port as needed
+        swarm_drone = SwarmDiscovery(xbee_port=xbee_port, use_computer_camera=use_computer_camera)  # Adjust port as needed
         print(f"Connecting drone {drone_id}: {system_address}, Port: {port}")
         await swarm_drone.connect(system_address=system_address, port=port)
         await swarm_drone.initialize_mission(target_altitude=5.0)
@@ -46,8 +46,11 @@ async def test_swarm_discovery() -> None:
             drone_id=1,
             system_address="udp://:14540",
             port=50060,
-            delay=0
+            delay=0,
+            xbee_port="/dev/ttyUSB0",
+            use_computer_camera=True
         ),
+     
         # Add more test_drone calls here for additional drones if needed
     ]
     try:
