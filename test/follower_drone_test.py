@@ -97,27 +97,22 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
         async for terrain_info in drone.telemetry.home():
             absolute_altitude = terrain_info.absolute_altitude_m
             break
-        logging.info("Arming drone.")
+   
+        
+        print("-- Arming")
         await drone.action.arm()
-        logging.info("Taking off to 5m above ground.")
-        await drone.action.set_takeoff_altitude(5.0)
-        await drone.action.set_current_speed(5.0)
+
+        print("-- Taking off")
         await drone.action.takeoff()
-        # Drone en az 3 metre irtifaya ulaşana kadar bekle
-        takeoff_altitude = None
-        for _ in range(10):
-            async for position in drone.telemetry.position():
-                takeoff_altitude = position.absolute_altitude_m
-                logging.info(f"Current altitude: {takeoff_altitude}")
-                break
-            if takeoff_altitude and takeoff_altitude > 3.0:
-                break
-            await asyncio.sleep(1)
+
+        await asyncio.sleep(1)
+
+        flying_alt = absolute_altitude + 10.0
         lat_decimal = lat / 1000000.0
         lon_decimal = lon / 1000000.0
         target_altitude = absolute_altitude + alt
         logging.info(f"Hedef konuma gidiliyor: {lat_decimal}, {lon_decimal}, {target_altitude}m AMSL (deniz seviyesinden)")
-        await drone.action.goto_location(lat_decimal, lon_decimal, target_altitude, 0)
+        await drone.action.goto_location(lat_decimal, lon_decimal, flying_alt, 0)
         for _ in range(30):
             async for position in drone.telemetry.position():
                 current_lat = position.latitude_deg
