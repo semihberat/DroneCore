@@ -22,7 +22,7 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
     try:
         from mavsdk import System
         drone = System(port=50061)
-        await drone.connect(system_address="udpin://0.0.0.0:14541")
+        await drone.connect(system_address="serial:///dev/ttyACM0:57600")
         logging.info("Waiting for drone to connect...")
         async for state in drone.core.connection_state():
             if state.is_connected:
@@ -109,7 +109,7 @@ def main() -> None:
             logging.error(f"Data parse error: {e}")
         except Exception as e:
             logging.error(f"Message handler error: {e}")
-    xbee = XbeeService(message_received_callback=XbeeService.default_message_received_callback, port="/dev/ttyUSB1", baudrate=57600, max_queue_size=100)
+    xbee = XbeeService(message_received_callback=XbeeService.default_message_received_callback, port="/dev/ttyUSB0", baudrate=57600, max_queue_size=100)
     xbee.set_custom_message_handler(custom_message_handler)
     xbee.listen()
     try:
