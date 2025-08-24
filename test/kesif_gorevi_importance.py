@@ -9,6 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.connect import DroneConnection
 from optimization.distance_calculation import CalculateDistance
 
+
+
 class OffboardControl(DroneConnection):
     """
     OffboardControl: Combines connection and movement logic for missions.
@@ -18,13 +20,13 @@ class OffboardControl(DroneConnection):
         self.target_altitude: float | None = None
 
     async def initialize_mission(self, target_altitude: float) -> bool:
-        """
-        Stable takeoff and offboard transition with multiple attempts.
-        """
+        
         self.target_altitude = target_altitude
+        
         print("Arming...")
         await self.drone.action.arm()
         await asyncio.sleep(2)
+
         print("Saving home position...")
         self.home_position = {
             "lat": self.current_position.latitude_deg,
@@ -33,10 +35,11 @@ class OffboardControl(DroneConnection):
             "yaw": self.current_attitude.yaw_deg if self.current_attitude else 0.0
         }
         print(f"Home: Alt={self.home_position['alt']:.1f}m, Yaw={self.home_position['yaw']:.1f}°")
+        
         print(f"Takeoff to {target_altitude}m...")
         await self.drone.action.set_takeoff_altitude(target_altitude)
         await self.drone.action.takeoff()
-        print("Waiting for takeoff completion...")
+                
         while True:
             current_alt = self.current_position.absolute_altitude_m
             altitude_diff = current_alt - self.home_position["alt"]
@@ -44,19 +47,25 @@ class OffboardControl(DroneConnection):
                 print(f"Takeoff OK: {altitude_diff:.1f}m")
                 break
             await asyncio.sleep(0.5)
+
         print("Hold mode...")
         await self.drone.action.hold()
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(1)
+
         print("Preparing offboard...")
         current_alt = self.current_position.absolute_altitude_m
+        current_yaw = self.current_attitude.yaw_deg if self.current_attitude else self.home_position["yaw"]
         altitude_diff = current_alt - self.home_position["alt"]
         success = False
         
-        for attempt in range(5):
+        for _ in range(10):
             await self.drone.offboard.set_velocity_ned(
-                VelocityNedYaw(0.0, 0.0, 0, self.home_position["yaw"])
+                VelocityNedYaw(0.0, 0.0, -0.1, current_yaw)
             )
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
+        
+        success = False
+        for attempt in range(3):
             try:
                 await self.drone.offboard.start()
                 print("Offboard mode OK.")
@@ -65,12 +74,7 @@ class OffboardControl(DroneConnection):
             except OffboardError as e:
                 print(f"Offboard attempt {attempt + 1} failed: {e}")
                 await asyncio.sleep(1)
-        if not success:
-            print("Offboard transition failed!")
-            return False
-        await asyncio.sleep(2)
-        print("Mission ready - offboard active.")
-        return True
+        return success   
 
     async def end_mission(self) -> None:
         """
@@ -153,4 +157,3 @@ class OffboardControl(DroneConnection):
                 current_velocity = velocity
             await self.go_forward(velocity=current_velocity, yaw=yaw)
             await asyncio.sleep(0.1)
-
