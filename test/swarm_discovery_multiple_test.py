@@ -50,6 +50,14 @@ async def test_swarm_discovery() -> None:
             xbee_port="/dev/ttyUSB0",
             use_computer_camera=True
         ),
+        test_drone(
+            drone_id=2,
+            system_address="udp://:14541",
+            port=50061,
+            delay=0,
+            xbee_port="/dev/ttyUSB1",
+            use_computer_camera=False
+        ),
         # Add more test_drone calls here for additional drones if needed
     ]
     try:

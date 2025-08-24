@@ -81,8 +81,8 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
     logging.info("Starting drone mission...")
     try:
         from mavsdk import System
-        drone = System(port=50061)
-        await drone.connect(system_address="udp://:14541")
+        drone = System(port=50062)
+        await drone.connect(system_address="udp://:14542")
         logging.info("Waiting for drone to connect...")
         async for state in drone.core.connection_state():
             if state.is_connected:
@@ -132,6 +132,7 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
         target_altitude = home_abs_alt+ 5
         logging.info(f"Hedef konuma gidiliyor: {lat_decimal}, {lon_decimal}, {target_altitude}m AMSL (deniz seviyesinden)")
         await drone.action.goto_location(lat_decimal, lon_decimal, target_altitude, 0)
+        await drone.action.set_current_speed(1.5)
         for _ in range(30):
             async for position in drone.telemetry.position():
                 current_lat = position.latitude_deg
@@ -158,7 +159,7 @@ def main() -> None:
     # Global xbee değişkeni
     global xbee
     
-    xbee = XbeeService(message_received_callback=XbeeService.default_message_received_callback, port="/dev/ttyUSB1", baudrate=57600, max_queue_size=100)
+    xbee = XbeeService(message_received_callback=XbeeService.default_message_received_callback, port="/dev/ttyUSB2", baudrate=57600, max_queue_size=100)
     xbee.set_custom_message_handler(custom_message_handler)
     xbee.listen()
     try:
