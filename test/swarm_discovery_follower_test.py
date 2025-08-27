@@ -41,7 +41,8 @@ def custom_message_handler(message_dict: dict) -> None:
                 
             elif command == 2:
                 logging.info("Feedback received - message confirmed!")
-                # Feedback alındı log'u                
+                # Feedback alındı log'u
+                
             else:
                 logging.info(f"Command {command} - no action taken")
                 
@@ -93,54 +94,31 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
             if health.is_global_position_ok and health.is_home_position_ok:
                 logging.info("Global position state is good enough for flying.")
                 break
-                
-            
-        async for home in drone.telemetry.home():
-            home_abs_alt = home.absolute_altitude_m
-            logging.info(f"Home altitude (AMSL): {home_abs_alt:.2f} m")
-            break
-
         async for terrain_info in drone.telemetry.home():
             absolute_altitude = terrain_info.absolute_altitude_m
             break
-        logging.info("Arming drone.")
+   
+        print("-- Arming")
         await drone.action.arm()
-        logging.info("Taking off to 5m above ground.")
-        await drone.action.set_takeoff_altitude(5.0)
+
+        print("-- Taking off")
         await drone.action.takeoff()
-  
-        
-        # Drone en az 3 metre irtifaya ulaşana kadar bekle
 
-        takeoff_reached = False
-        for _ in range(20):  # max 20 sn bekle
-            async for position in drone.telemetry.position():
-                relative_alt = position.absolute_altitude_m - home_abs_alt
-                logging.info(f"Relative altitude: {relative_alt:.2f} m")
-                break
+        await asyncio.sleep(1)
 
-            if relative_alt >= 3.0:
-                logging.info("Takeoff altitude reached ?")
-                takeoff_reached = True
-                break
-            await asyncio.sleep(1)
-        if not takeoff_reached:
-            logging.error("Takeoff failed: relative altitude not reached!")
-            return
+        flying_alt = absolute_altitude + 10.0
         lat_decimal = lat / 1000000.0
         lon_decimal = lon / 1000000.0
-        target_altitude = home_abs_alt+ 5
-        logging.info(f"Hedef konuma gidiliyor: {lat_decimal}, {lon_decimal}, {target_altitude}m AMSL (deniz seviyesinden)")
-        await drone.action.goto_location(lat_decimal, lon_decimal, target_altitude, 0)
-        await drone.action.set_current_speed(1.5)
+     
+        await drone.action.goto_location(lat_decimal, lon_decimal, flying_alt, 0)
         for _ in range(30):
             async for position in drone.telemetry.position():
                 current_lat = position.latitude_deg
                 current_lon = position.longitude_deg
-                home_abs_alt = position.absolute_altitude_m
+                current_alt = position.absolute_altitude_m
                 lat_diff = abs(current_lat - lat_decimal)
                 lon_diff = abs(current_lon - lon_decimal)
-                alt_diff = abs(home_abs_alt - alt)
+                alt_diff = abs(current_alt - alt)
                 logging.info(f"Distance to target: lat={lat_diff}, lon={lon_diff}, alt={alt_diff}")
                 if lat_diff < 0.00001 and lon_diff < 0.00001:
                     logging.info("Drone reached target location.")

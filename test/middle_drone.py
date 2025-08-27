@@ -6,6 +6,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from missions.swarm_discovery import SwarmDiscovery
 from optimization.distance_calculation import CalculateDistance
 
+
+
 async def test_drone(drone_id: int, system_address: str, port: int, delay: float, 
                      xbee_port: str, drone_purpose: str, use_computer_camera:bool = False) -> None:
     """
@@ -48,7 +50,7 @@ async def test_drone(drone_id: int, system_address: str, port: int, delay: float
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         
-        await swarm_drone.initialize_mission(target_altitude=5.0, drone_purpose=drone_purpose)
+        await swarm_drone.initialize_mission(target_altitude=10.0, drone_purpose=drone_purpose)
      
         await swarm_drone.hold_mode(1.0, swarm_drone.home_position["yaw"])
         await swarm_drone.square_oscillation_by_cam_fov(
@@ -75,16 +77,16 @@ async def test_swarm_discovery(testing: bool, instance: int) -> None:
     
     tasks = [
         test_drone(
-            drone_id=i + 1,
-            system_address=f"udp://:1454{i - 1}" if testing else f"serial:///dev/ttyACM{i}:57600",
-            port=50060 + (i - 1),
+            drone_id=2,
+            system_address="serial:///dev/ttyACM0:57600",
+            port=50060,
             delay=0,
-            xbee_port=f"/dev/ttyUSB{i - 1}" if testing else f"/dev/ttyUSB{i}:57600",
-            use_computer_camera=True,
-            drone_purpose="not middle broww"
-        )
-        for i in range(instance)
+            xbee_port="/dev/ttyUSB0",
+            use_computer_camera=False,
+            drone_purpose="middle"
+        ),
     ]
+    # Start all drone tests concurrently
     try:
         await asyncio.gather(*tasks)
     except Exception as e:

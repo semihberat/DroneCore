@@ -11,9 +11,6 @@ import threading
 from mavsdk.offboard import VelocityNedYaw
 from services.xbee_service import XbeeService
 
-
-
-
 class SwarmDiscovery(OffboardControl):
     """
     SwarmDiscovery mission: square oscillation flight and ArUco-based precision landing.
@@ -279,7 +276,7 @@ class SwarmDiscovery(OffboardControl):
                     self.mission_completed = True
                 
                 print("Mission complete.")
-                await asyncio.sleep(1)
+       
                 await self.go_forward_by_meter(5.0, 1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
                 await self.end_mission()
             else:
