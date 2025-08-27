@@ -41,6 +41,7 @@ class SwarmDiscovery(OffboardControl):
             print(f"⚠️ XBee service failed to start: {e}")
             print("   Continuing without XBee...")
 
+    
     def handle_xbee_message(self, message_dict: dict) -> None:
         """
         Handle received XBee message data.

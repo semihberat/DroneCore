@@ -4,8 +4,10 @@ import os
 # Add parent directory to sys.path for module imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from missions.swarm_discovery import SwarmDiscovery
+from optimization.distance_calculation import CalculateDistance
 
-async def test_drone(drone_id: int, system_address: str, port: int, delay: float, xbee_port: str, use_computer_camera:bool = False) -> None:
+async def test_drone(drone_id: int, system_address: str, port: int, delay: float, 
+                     xbee_port: str, drone_purpose: str, use_computer_camera:bool = False) -> None:
     """
     Single drone test function.
     Args:
@@ -22,11 +24,36 @@ async def test_drone(drone_id: int, system_address: str, port: int, delay: float
         swarm_drone = SwarmDiscovery(xbee_port=xbee_port, use_computer_camera=use_computer_camera)  # Adjust port as needed
         print(f"Connecting drone {drone_id}: {system_address}, Port: {port}")
         await swarm_drone.connect(system_address=system_address, port=port)
-        await swarm_drone.initialize_mission(target_altitude=5.0)
+        #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+        set_lat_lon_parms = [
+            (47.398150,8.545920),
+            (47.398420, 8.545920),
+            (47.398150, 8.546317),
+            (47.398420, 8.546317)
+        ]
+        swarm_drone.set_lat_lon_yaw(
+            *set_lat_lon_parms
+        )
+        
+        vertical_edge_length = CalculateDistance.get_lat_lon_distance(
+            set_lat_lon_parms[0][0], set_lat_lon_parms[0][1],
+            set_lat_lon_parms[1][0], set_lat_lon_parms[1][1]
+        )[2] # [north, east, vertical]
+
+        horizontal_edge_length = CalculateDistance.get_lat_lon_distance(
+            set_lat_lon_parms[0][0], set_lat_lon_parms[0][1],
+            set_lat_lon_parms[2][0], set_lat_lon_parms[2][1]
+        )[2] # [north, east, vertical]
+
+        #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+        
+        await swarm_drone.initialize_mission(target_altitude=5.0, drone_purpose=drone_purpose)
+     
         await swarm_drone.hold_mode(1.0, swarm_drone.home_position["yaw"])
         await swarm_drone.square_oscillation_by_cam_fov(
-            distance1=30.0,
-            distance2=30.0,
+            distance1=vertical_edge_length,
+            distance2=horizontal_edge_length,
             velocity=1.0,
             camera_fov_horizontal=62,
             camera_fov_vertical=49,
@@ -36,35 +63,39 @@ async def test_drone(drone_id: int, system_address: str, port: int, delay: float
         await swarm_drone.end_mission()
     except Exception as e:
         print(f"Drone {drone_id} ERROR: {e}")
+
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
         
-async def test_swarm_discovery() -> None:
+async def test_swarm_discovery(testing: bool, instance: int) -> None:
     """
     Run parallel tests for multiple drones in the swarm.
     """
+    if instance < 1:
+        raise ValueError("instance parametresi pozitif olmalı!")
+    
     tasks = [
         test_drone(
-            drone_id=1,
-            system_address="udp://:14540",
-            port=50060,
+            drone_id=i + 1,
+            system_address=f"udp://:1454{i - 1}" if testing else f"serial:///dev/ttyACM{i}:57600",
+            port=50060 + (i - 1),
             delay=0,
-            xbee_port="/dev/ttyUSB0",
-            use_computer_camera=True
-        ),
-        test_drone(
-            drone_id=2,
-            system_address="udp://:14541",
-            port=50061,
-            delay=0,
-            xbee_port="/dev/ttyUSB1",
-            use_computer_camera=False
-        ),
-        # Add more test_drone calls here for additional drones if needed
+            xbee_port=f"/dev/ttyUSB{i - 1}" if testing else f"/dev/ttyUSB{i}:57600",
+            use_computer_camera=True,
+            drone_purpose="not middle broww"
+        )
+        for i in range(instance)
     ]
     try:
         await asyncio.gather(*tasks)
     except Exception as e:
         print(f"General ERROR: {e}")
+    try:
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        print(f"General ERROR: {e}")
+
+
 
 if __name__ == "__main__":
-    asyncio.run(test_swarm_discovery())
+    asyncio.run(test_swarm_discovery(testing = True, instance = 2))
     print("Test completed.")

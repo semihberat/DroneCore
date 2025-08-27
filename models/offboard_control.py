@@ -4,6 +4,7 @@ from mavsdk.offboard import (PositionNedYaw, VelocityNedYaw, OffboardError)
 # System Libraries - Sistem kütüphaneleri
 import sys
 import os
+import math
 # Custom Libraries - Özel kütüphanelerimiz
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.connect import DroneConnection
@@ -15,9 +16,36 @@ class OffboardControl(DroneConnection):
     """
     def __init__(self):
         super().__init__()
-        self.target_altitude: float | None = None
+        self.left_down_corner: tuple[float, float] | None = None
+        self.left_up_corner: tuple[float, float] | None = None
+        self.right_down_corner: tuple[float, float] | None = None
+        self.right_up_corner: tuple[float, float] | None = None
 
-    async def initialize_mission(self, target_altitude: float) -> bool:
+    def set_lat_lon_yaw(self, left_down: tuple[float, float], left_up: tuple[float, float], 
+                              right_down: tuple[float, float], right_up: tuple[float, float]) -> None:
+        self.left_down_corner = left_down
+        self.left_up_corner = left_up
+        self.right_down_corner = right_down
+        self.right_up_corner = right_up
+        
+    async def goto_location(self, lat: float, lon: float, target_alt: float, goto_yaw: float) -> None:
+        await self.drone.action.goto_location(lat, lon, target_alt, goto_yaw)
+        await self.drone.action.set_current_speed(1.5)
+        for _ in range(30):
+            async for position in self.drone.telemetry.position():
+                current_lat = position.latitude_deg
+                current_lon = position.longitude_deg
+                home_abs_alt = position.absolute_altitude_m
+                lat_diff = abs(current_lat - lat)
+                lon_diff = abs(current_lon - lon)
+                alt_diff = abs(home_abs_alt - target_alt)
+                print(f"Distance to target: lat={lat_diff}, lon={lon_diff}, alt={alt_diff}")
+                if lat_diff < 0.00001 and lon_diff < 0.00001:
+                    print("Drone reached target location.")
+                    break
+            await asyncio.sleep(0.5)
+
+    async def initialize_mission(self, target_altitude: float, drone_purpose: str) -> bool:
         """
         Stable takeoff and offboard transition with multiple attempts.
         """
@@ -45,6 +73,30 @@ class OffboardControl(DroneConnection):
                 break
             await asyncio.sleep(0.5)
         print("Hold mode...")
+        print("hata buradan kaynaklanabilir:",self.left_down_corner, self.left_up_corner, self.right_down_corner, self.right_up_corner)
+        if drone_purpose != "middle":
+            goto_yaw = CalculateDistance.get_turn_angle(self.left_down_corner[0], self.left_down_corner[1], 
+                                                                    self.left_up_corner[0], self.left_up_corner[1])
+            
+       
+            self.home_position["yaw"] = goto_yaw
+            await self.goto_location(self.left_down_corner[0], self.left_down_corner[1], self.home_position["alt"] + self.target_altitude, goto_yaw)
+        
+        else:
+            up_corners_middle = CalculateDistance.find_middle_of_two_points(
+                self.left_up_corner, self.right_up_corner
+            )
+            down_corners_middle = CalculateDistance.find_middle_of_two_points(
+                self.left_down_corner, self.right_down_corner
+            )
+            goto_yaw = CalculateDistance.get_turn_angle(
+                down_corners_middle[0], down_corners_middle[1],
+                up_corners_middle[0], up_corners_middle[1]
+            )
+            self.home_position["yaw"] = goto_yaw
+            await self.goto_location(down_corners_middle[0], down_corners_middle[1], 
+                                     self.home_position["alt"] + self.target_altitude, goto_yaw)
+           
         await self.drone.action.hold()
         await asyncio.sleep(0.1)
         print("Preparing offboard...")

@@ -1,0 +1,4 @@
+folium>=0.14.0
+geopy>=2.3.0
+tkintermapview>=1.17
+pyserial>=3.5
