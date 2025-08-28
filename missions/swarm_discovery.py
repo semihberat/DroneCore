@@ -21,6 +21,7 @@ class SwarmDiscovery(OffboardControl):
         self.mission_completed = False
         self.landing_command_received = False  # Command 1 için flag
         self.feedback_received = False  # Feedback alındı mı flag'i
+        self.THRESHOLD = 0.01  # 1 cm = normal hassasiyet (class seviyesinde)
         self.xbee_service = XbeeService(
             message_received_callback=XbeeService.default_message_received_callback,
             port=xbee_port,
@@ -205,9 +206,10 @@ class SwarmDiscovery(OffboardControl):
                     break
                 
                 x, y, z = self.pi_cam.get_averaged_position()
-                # Only print if not centered
-                if abs(x) > 0.02 or abs(y) > 0.02:
-                    print(f"Correction: X={x:.2f} Y={y:.2f}")
+                print(f"DEBUG: ArUco position - X={x:.4f}, Y={y:.4f}")
+                # Threshold kontrolü - OR operatörü kullan (daha esnek)
+                if abs(x) > self.THRESHOLD or abs(y) > self.THRESHOLD:  # Class seviyesindeki threshold
+                    print(f"Correction needed: X={x:.4f} Y={y:.4f}")
                     correction_speed = 0.5
                     move_x = x * correction_speed
                     move_y = y * correction_speed
@@ -220,7 +222,7 @@ class SwarmDiscovery(OffboardControl):
                     )
                     await asyncio.sleep(0.1)  # Daha hızlı
                 else:
-                    print("ArUco centered!")
+                    print(f"ArUco centered! Position: X={x:.4f} Y={y:.4f}")
                     break
             
             # ArUco ortalandıktan sonra command 1 geldi mi kontrol et
@@ -249,14 +251,42 @@ class SwarmDiscovery(OffboardControl):
                         )
                         if success:
                             print("XBee message sent. Waiting for feedback...")
-                            # Feedback bekleyelim (timeout ile)
-                            feedback_timeout = 10  # 10 saniye bekle
+                            
+                            # Feedback 2 gelene kadar ArUco ortalamasını sürdür
                             feedback_start = asyncio.get_event_loop().time()
+                            feedback_timeout = 60  # 60 saniye timeout (daha uzun)
                             
                             while not self.feedback_received:
+                                # Timeout kontrolü
                                 if asyncio.get_event_loop().time() - feedback_start > feedback_timeout:
                                     print("Feedback timeout - proceeding without confirmation")
                                     break
+                                
+                                # ArUco pozisyonunu sürekli kontrol et ve ortala
+                                x, y, z = self.pi_cam.get_averaged_position()
+                                print(f"DEBUG: Feedback wait - ArUco position: X={x:.4f}, Y={y:.4f}")
+                                
+                                if abs(x) > self.THRESHOLD or abs(y) > self.THRESHOLD:  # Class seviyesindeki threshold
+                                    print(f"Maintaining ArUco centering: X={x:.4f} Y={y:.4f}")
+                                    correction_speed = 0.3  # Daha yumuşak düzeltme
+                                    move_x = x * correction_speed
+                                    move_y = y * correction_speed
+                                    await self.drone.offboard.set_velocity_ned(
+                                        VelocityNedYaw(move_x, move_y, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+                                    )
+                                    await asyncio.sleep(0.1)
+                                    await self.drone.offboard.set_velocity_ned(
+                                        VelocityNedYaw(0.0, 0.0, 0.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+                                    )
+                                    await asyncio.sleep(0.1)
+                                else:
+                                    print(f"ArUco perfectly centered, maintaining position: X={x:.4f} Y={y:.4f}")
+                                
+                                # Command 1 geldi mi kontrol et
+                                if self.landing_command_received:
+                                    print("Landing command received during feedback wait - starting normal landing!")
+                                    break
+                                
                                 await asyncio.sleep(0.1)
                             
                             if self.feedback_received:
@@ -276,7 +306,7 @@ class SwarmDiscovery(OffboardControl):
                     self.mission_completed = True
                 
                 print("Mission complete.")
-       
+                await asyncio.sleep(1)
                 await self.go_forward_by_meter(5.0, 1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
                 await self.end_mission()
             else:

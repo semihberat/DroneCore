@@ -20,6 +20,7 @@ class OffboardControl(DroneConnection):
         self.left_up_corner: tuple[float, float] | None = None
         self.right_down_corner: tuple[float, float] | None = None
         self.right_up_corner: tuple[float, float] | None = None
+        self.mission_ending = False  # Mission sonlandırma flag'i
 
     def set_lat_lon_yaw(self, left_down: tuple[float, float], left_up: tuple[float, float], 
                               right_down: tuple[float, float], right_up: tuple[float, float]) -> None:
@@ -130,12 +131,40 @@ class OffboardControl(DroneConnection):
         """
         End mission, stop telemetry tasks and offboard mode, then land.
         """
+        # Eğer mission zaten sonlandırılıyorsa çık
+        if self.mission_ending:
+            print("Mission already ending, skipping...")
+            return
+        
+        self.mission_ending = True
         print("Ending mission...")
         await asyncio.sleep(1)
-        self.status_text_task.cancel()
-        self._position_task.cancel()
-        self._velocity_task.cancel()
-        self._attitude_task.cancel()
+        
+        # Task'ları güvenli şekilde iptal et
+        if hasattr(self, 'status_text_task') and self.status_text_task and not self.status_text_task.done():
+            try:
+                self.status_text_task.cancel()
+            except Exception as e:
+                print(f"Error canceling status_text_task: {e}")
+        
+        if hasattr(self, '_position_task') and self._position_task and not self._position_task.done():
+            try:
+                self._position_task.cancel()
+            except Exception as e:
+                print(f"Error canceling _position_task: {e}")
+        
+        if hasattr(self, '_velocity_task') and self._velocity_task and not self._velocity_task.done():
+            try:
+                self._velocity_task.cancel()
+            except Exception as e:
+                print(f"Error canceling _velocity_task: {e}")
+        
+        if hasattr(self, '_attitude_task') and self._attitude_task and not self._attitude_task.done():
+            try:
+                self._attitude_task.cancel()
+            except Exception as e:
+                print(f"Error canceling _attitude_task: {e}")
+        
         print("Mission ended. Stopping offboard control.")
         try:
             await self.drone.offboard.stop()
