@@ -79,7 +79,7 @@ class OffboardControl(DroneConnection):
             goto_yaw = CalculateDistance.get_turn_angle(self.left_down_corner[0], self.left_down_corner[1], 
                                                                     self.left_up_corner[0], self.left_up_corner[1])
             
-        
+            goto_yaw = math.degrees(goto_yaw)
             self.home_position["yaw"] = goto_yaw
             await self.goto_location(self.left_down_corner[0], self.left_down_corner[1], self.home_position["alt"] + self.target_altitude, goto_yaw)
         
@@ -96,6 +96,7 @@ class OffboardControl(DroneConnection):
                 down_corners_middle[0], down_corners_middle[1],
                 up_corners_middle[0], up_corners_middle[1]
             )
+            goto_yaw = math.degrees(goto_yaw)
             self.home_position["yaw"] = goto_yaw
             await self.goto_location(down_corners_middle[0], down_corners_middle[1], 
                                      self.home_position["alt"] + self.target_altitude, goto_yaw)
