@@ -74,7 +74,7 @@ async def test_swarm_discovery() -> None:
         test_drone(
             drone_id=2,
             system_address="serial:///dev/ttyACM0:57600",
-            delay=5,
+            delay=10,
             xbee_port="/dev/ttyUSB0",
             use_computer_camera=False,
             drone_purpose="middle"

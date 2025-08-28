@@ -307,7 +307,7 @@ class SwarmDiscovery(OffboardControl):
                 
                 print("Mission complete.")
                 await asyncio.sleep(1)
-                await self.go_forward_by_meter(5.0, 1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
+                await self.go_forward_by_meter(2.0, 1.0, self.current_attitude.yaw_deg if self.current_attitude else 0.0)
                 await self.end_mission()
             else:
                 print("ArUco not centered.")

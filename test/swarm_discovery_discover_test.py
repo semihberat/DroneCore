@@ -80,7 +80,7 @@ async def test_swarm_discovery(testing: bool, instance: int) -> None:
             drone_id=1,
             system_address=f"udp://:14540" if testing else f"serial:///dev/ttyACM0:57600",
             port=50060,
-            delay=5,
+            delay=10,
             xbee_port="/dev/ttyUSB0",
             use_computer_camera=True,
             drone_purpose="middle"

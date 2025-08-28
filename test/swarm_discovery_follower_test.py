@@ -111,6 +111,7 @@ async def drone_mission(lat: int, lon: int, alt: int, command: int) -> None:
         lon_decimal = lon / 1000000.0
      
         await drone.action.goto_location(lat_decimal, lon_decimal, flying_alt, 0)
+        await drone.action.set_current_speed(2)
         for _ in range(30):
             async for position in drone.telemetry.position():
                 current_lat = position.latitude_deg
