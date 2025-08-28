@@ -8,7 +8,7 @@ from optimization.distance_calculation import CalculateDistance
 
 
 
-async def test_drone(drone_id: int, system_address: str, port: int, delay: float, 
+async def test_drone(drone_id: int, system_address: str, delay: float, 
                      xbee_port: str, drone_purpose: str, use_computer_camera:bool = False) -> None:
     """
     Single drone test function.
@@ -24,15 +24,15 @@ async def test_drone(drone_id: int, system_address: str, port: int, delay: float
             print(f"Drone {drone_id} waiting {delay} seconds before start...")
             await asyncio.sleep(delay)
         swarm_drone = SwarmDiscovery(xbee_port=xbee_port, use_computer_camera=use_computer_camera)  # Adjust port as needed
-        print(f"Connecting drone {drone_id}: {system_address}, Port: {port}")
-        await swarm_drone.connect(system_address=system_address, port=port)
+      
+        await swarm_drone.connect(system_address=system_address)
         #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
         set_lat_lon_parms = [
-            (47.398150,8.545920),
-            (47.398420, 8.545920),
-            (47.398150, 8.546317),
-            (47.398420, 8.546317)
+            (40.7987,30.2929),
+            (40.7985,30.2929),
+            (40.7987, 30.2927),
+            (40.7985, 30.2927)
         ]
         swarm_drone.set_lat_lon_yaw(
             *set_lat_lon_parms
@@ -70,16 +70,14 @@ async def test_drone(drone_id: int, system_address: str, port: int, delay: float
         
 async def test_swarm_discovery() -> None:
 
-    
     tasks = [
         test_drone(
             drone_id=1,
             system_address="serial:///dev/ttyACM0:57600",
-            port=None,
-            delay=10,
+            delay=5,
             xbee_port="/dev/ttyUSB0",
             use_computer_camera=False,
-            drone_purpose="corner"
+            drone_purpose="middle"
         ),
     ]
     # Start all drone tests concurrently
@@ -87,10 +85,7 @@ async def test_swarm_discovery() -> None:
         await asyncio.gather(*tasks)
     except Exception as e:
         print(f"General ERROR: {e}")
-    try:
-        await asyncio.gather(*tasks)
-    except Exception as e:
-        print(f"General ERROR: {e}")
+
 
 
 

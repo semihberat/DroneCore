@@ -18,7 +18,7 @@ class DroneConnection(DroneStatus):
         self.drone: System = None
         # Status tasks are initialized in constructor for reuse.
 
-    async def connect(self, system_address: str, port: int):
+    async def connect(self, system_address: str, port: int = System()._port):
         """
         Connect to drone and start telemetry tasks.
         Args:
