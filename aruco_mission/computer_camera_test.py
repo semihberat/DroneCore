@@ -27,7 +27,7 @@ class ComputerCameraTest:
         self.buffer_size = 10  # 10 frame ortalama
         self.center_threshold = 0.025  # 5cm merkez toleransı
         self.stable_count = 0
-        self.stable_threshold = 15  # 5 frame sabit kalırsa merkezde
+        self.stable_threshold = 5  # 5 frame sabit kalırsa merkezde
         
         # Hedef marker ID'si
         self.target_marker_id = target_marker_id

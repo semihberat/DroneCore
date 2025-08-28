@@ -72,7 +72,7 @@ async def test_swarm_discovery() -> None:
 
     tasks = [
         test_drone(
-            drone_id=1,
+            drone_id=2,
             system_address="serial:///dev/ttyACM0:57600",
             delay=5,
             xbee_port="/dev/ttyUSB0",
