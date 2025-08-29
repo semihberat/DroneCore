@@ -31,7 +31,7 @@ async def test_drone(drone_id: int, system_address: str, delay: float,
         set_lat_lon_parms = [
             (40.7445114, 30.3380595),
             (40.7445943, 30.3386202),
-            (40.7440583, 30.3387387),
+            (40.7440583, 30.3381680),
             (40.7441384, 30.3387387)
         ]
         swarm_drone.set_lat_lon_yaw(
