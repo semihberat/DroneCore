@@ -51,7 +51,7 @@ async def test_drone(drone_id: int, system_address: str, delay: float,
 
         #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         
-        await swarm_drone.initialize_mission(target_altitude=10.0, drone_purpose=drone_purpose)
+        await swarm_drone.initialize_mission(target_altitude=8.0, drone_purpose=drone_purpose)
      
         await swarm_drone.hold_mode(1.0, swarm_drone.home_position["yaw"])
         await swarm_drone.square_oscillation_by_cam_fov(

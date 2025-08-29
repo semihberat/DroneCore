@@ -8,4 +8,4 @@ def find_middle_of_two_points(lat1: float, lon1: float, lat2: float, lon2: float
         return mid_lat, mid_lon
 
 
-print(find_middle_of_two_points())
+print(find_middle_of_two_points(40.7445114, 30.3380595,40.7440583, 30.3381680))
