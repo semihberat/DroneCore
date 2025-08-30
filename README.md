@@ -2,6 +2,8 @@
 
 # 🚁 DroneCore - Finalized Otonom Drone Swarm Kontrol Sistemi
 
+KANKA BIRAZ YUZUNUZ VARSA BU PROJEYI KULLANMAZSINIZ 
+
 Bu proje, PX4/MAVSDK kullanarak drone'ları otonom olarak kontrol etmek için geliştirilmiş, **XBee wireless komunikasyon**, **precision landing**, **ground control station** ve **swarm koordinasyon** yetenekleri ile donatılmış, tip güvenli ve matematiksel algoritmalara dayalı bir Python kütüphanesidir.
 
 ## 🎯 **Finalized Sistem Bileşenleri**
